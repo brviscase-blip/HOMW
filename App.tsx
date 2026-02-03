@@ -143,7 +143,7 @@ const App: React.FC = () => {
   };
 
   const toggleTaskStatus = (id: string) => {
-    if (subTab !== 'today') return; // Bloqueio de ação se não estiver na guia Hoje
+    if (subTab !== 'today') return;
     
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
@@ -214,34 +214,35 @@ const App: React.FC = () => {
       className="group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all border-l-4 border-transparent hover:border-l-slate-950 dark:hover:border-l-white"
       style={{ borderLeftColor: task.status !== TaskStatus.COMPLETED ? 'transparent' : (theme === 'dark' ? '#334155' : '#cbd5e1') }}
     >
-      <button 
-        onClick={() => toggleTaskStatus(task.id)}
-        disabled={subTab !== 'today'}
-        className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative 
-          ${task.status === TaskStatus.COMPLETED 
-            ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' 
-            : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}
-          ${subTab === 'today' ? 'hover:border-slate-950 dark:hover:border-white cursor-pointer' : 'cursor-default opacity-80'}`}
-      >
-        {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED ? (
-           <div className="flex flex-col items-center">
-             <span className="text-[9px] md:text-[10px] font-bold">{task.currentReps}</span>
-             <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
-             <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
-           </div>
-        ) : (
-          task.status === TaskStatus.COMPLETED ? <Icons.Check /> : (subTab === 'today' ? <Icons.Plus /> : <Icons.List />)
-        )}
-        {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && subTab === 'today' && (
-          <div 
-            className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
-            style={{ clipPath: `inset(${100 - (task.currentReps / task.targetReps) * 100}% 0 0 0)` }}
-          />
-        )}
-      </button>
+      {subTab === 'today' && (
+        <button 
+          onClick={() => toggleTaskStatus(task.id)}
+          className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative 
+            ${task.status === TaskStatus.COMPLETED 
+              ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' 
+              : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}
+            hover:border-slate-950 dark:hover:border-white cursor-pointer`}
+        >
+          {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED ? (
+             <div className="flex flex-col items-center">
+               <span className="text-[9px] md:text-[10px] font-bold">{task.currentReps}</span>
+               <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
+               <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
+             </div>
+          ) : (
+            task.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
+          )}
+          {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && (
+            <div 
+              className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
+              style={{ clipPath: `inset(${100 - (task.currentReps / task.targetReps) * 100}% 0 0 0)` }}
+            />
+          )}
+        </button>
+      )}
 
       <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-        <div className="hidden md:flex w-10 h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0">
+        <div className={`${subTab === 'registry' ? 'flex' : 'hidden md:flex'} w-9 h-9 md:w-10 md:h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0 border border-slate-100 dark:border-slate-800 md:border-none`}>
            <TaskIcon name={task.icon} color={task.iconColor} />
         </div>
         <div className="flex-1">
@@ -263,31 +264,32 @@ const App: React.FC = () => {
         </div>
       </div>
       
-      <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-        <button 
-          onClick={() => handleOpenEditTask(task)}
-          className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"
-          title="Editar Protocolo"
-        >
-          <Icons.Edit />
-        </button>
-        <button 
-          onClick={() => {
-            setTaskToDelete(task);
-            setIsDeleteModalOpen(true);
-          }}
-          className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"
-          title="Cancelar Registro"
-        >
-          <Icons.Trash />
-        </button>
-      </div>
+      {subTab === 'registry' && (
+        <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+          <button 
+            onClick={() => handleOpenEditTask(task)}
+            className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"
+            title="Editar Protocolo"
+          >
+            <Icons.Edit />
+          </button>
+          <button 
+            onClick={() => {
+              setTaskToDelete(task);
+              setIsDeleteModalOpen(true);
+            }}
+            className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"
+            title="Cancelar Registro"
+          >
+            <Icons.Trash />
+          </button>
+        </div>
+      )}
     </div>
   );
 
   return (
     <div className={`min-h-screen flex flex-col md:flex-row bg-white dark:bg-slate-950 text-slate-950 dark:text-white font-roboto transition-colors duration-300`}>
-      {/* Aside Otimizado para Mobile */}
       <aside className="w-full md:w-64 bg-slate-950 p-3 md:p-8 flex flex-col shrink-0 border-r border-slate-900 z-10">
         <div className="flex items-center justify-between md:flex-col md:items-start md:gap-3 mb-3 md:mb-16">
           <div className="flex items-center gap-2 md:gap-3">
@@ -339,7 +341,6 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-y-auto bg-slate-50/20 dark:bg-slate-900/50">
-        {/* Header Principal Otimizado para Mobile */}
         <header className="px-4 py-4 md:p-8 lg:p-10 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col md:flex-row items-start md:items-end justify-between sticky top-0 z-20 gap-2 md:gap-0 transition-colors">
           <div className="animate-slide-down">
             <h2 className="text-lg md:text-3xl font-roboto font-bold text-slate-950 dark:text-white tracking-tight uppercase leading-none">
@@ -352,7 +353,6 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 flex flex-col p-3 md:p-6 lg:p-10 gap-4 md:gap-6">
-          {/* Sub-Navegação Otimizada */}
           <div className="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
             <button 
               onClick={() => setSubTab('today')}
@@ -435,7 +435,7 @@ const App: React.FC = () => {
         </footer>
       </main>
 
-      {/* Modal Cadastro/Edição */}
+      {/* Modais */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-6 animate-fade-in overflow-y-auto bg-slate-950/25 dark:bg-black/60 backdrop-blur-[6px]">
           <div className="absolute inset-0" onClick={() => setIsModalOpen(false)}></div>
@@ -448,106 +448,43 @@ const App: React.FC = () => {
                 </h3>
                 <p className="text-[7px] opacity-40 font-bold uppercase mt-1 tracking-widest">Protocolo de Configuração v2.5</p>
               </div>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
-                className="w-8 h-8 flex items-center justify-center text-sm font-bold hover:bg-white/10 transition-colors opacity-60 hover:opacity-100"
-              >
-                ×
-              </button>
+              <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 flex items-center justify-center text-sm font-bold hover:bg-white/10 transition-colors opacity-60 hover:opacity-100">×</button>
             </div>
             
             <form onSubmit={handleSubmitTask} className="p-5 md:p-8 space-y-8 md:space-y-10 overflow-y-auto max-h-[85vh] scrollbar-hide">
-              
               <div className="space-y-3 md:space-y-4">
                 <SectionLabel number="01" text="Definição e Identidade" />
                 <div className="flex gap-2">
-                  <input 
-                    autoFocus 
-                    value={title} 
-                    onChange={(e) => setTitle(e.target.value)} 
-                    required 
-                    placeholder="EX: Meditação, Estudo, Treino..." 
-                    className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 dark:text-white outline-none focus:border-slate-400 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-200 dark:placeholder:text-slate-700" 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setIsStylePickerOpen(!isStylePickerOpen)}
-                    className={`w-14 md:w-16 flex items-center justify-center transition-all border shrink-0 ${isStylePickerOpen ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white shadow-inner' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-900'}`}
-                  >
-                    <TaskIcon 
-                      name={selectedIcon} 
-                      color={isStylePickerOpen && theme === 'dark' ? '#0f172a' : selectedIconColor} 
-                      className="scale-125"
-                    />
+                  <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="EX: Meditação, Estudo, Treino..." className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 dark:text-white outline-none focus:border-slate-400 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-200 dark:placeholder:text-slate-700" />
+                  <button type="button" onClick={() => setIsStylePickerOpen(!isStylePickerOpen)} className={`w-14 md:w-16 flex items-center justify-center transition-all border shrink-0 ${isStylePickerOpen ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white shadow-inner' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-900'}`}>
+                    <TaskIcon name={selectedIcon} color={isStylePickerOpen && theme === 'dark' ? '#0f172a' : selectedIconColor} className="scale-125" />
                   </button>
                 </div>
-
-                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isStylePickerOpen ? 'max-h-[500px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+                {isStylePickerOpen && (
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 md:p-6 border border-slate-100 dark:border-slate-800 space-y-6 md:space-y-8 animate-slide-down">
-                    <div className="flex items-center justify-between">
-                       <h5 className="text-[8px] font-black uppercase tracking-widest text-slate-400">Seletor de Identidade Visual</h5>
-                       <button type="button" onClick={() => setIsStylePickerOpen(false)} className="text-[8px] font-black uppercase text-slate-900 dark:text-slate-100">Fechar [×]</button>
-                    </div>
                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                       {Object.keys(Icons).filter(k => !['Plus', 'Trash', 'Check', 'List', 'Edit', 'Sun', 'Moon'].includes(k)).concat(['List']).map(iconName => (
-                        <button 
-                          key={iconName} 
-                          type="button" 
-                          onClick={() => setSelectedIcon(iconName)}
-                          className={`aspect-square flex items-center justify-center transition-all border ${selectedIcon === iconName ? 'bg-white dark:bg-slate-800 border-slate-950 dark:border-white shadow-sm scale-105 z-10' : 'bg-slate-100/50 dark:bg-slate-950/50 border-transparent hover:border-slate-300 dark:hover:border-slate-700'}`}
-                        >
-                          <TaskIcon 
-                            name={iconName} 
-                            color={selectedIcon === iconName ? selectedIconColor : (theme === 'dark' ? '#334155' : '#cbd5e1')} 
-                          />
-                        </button>
+                        <button key={iconName} type="button" onClick={() => setSelectedIcon(iconName)} className={`aspect-square flex items-center justify-center transition-all border ${selectedIcon === iconName ? 'bg-white dark:bg-slate-800 border-slate-950 dark:border-white shadow-sm scale-105 z-10' : 'bg-slate-100/50 dark:bg-slate-950/50 border-transparent hover:border-slate-300 dark:hover:border-slate-700'}`}><TaskIcon name={iconName} color={selectedIcon === iconName ? selectedIconColor : (theme === 'dark' ? '#334155' : '#cbd5e1')} /></button>
                       ))}
                     </div>
                     <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide border-t border-slate-200/50 dark:border-slate-800 pt-5 md:pt-6">
                       {TASK_COLORS.map(color => (
-                        <button 
-                          key={color} 
-                          type="button" 
-                          onClick={() => setSelectedIconColor(color)}
-                          style={{ backgroundColor: color }}
-                          className={`w-5 h-5 md:w-6 md:h-6 shrink-0 transition-all border-2 ${selectedIconColor === color ? 'border-slate-950 dark:border-white ring-2 ring-slate-100 dark:ring-slate-800 scale-125' : 'border-white dark:border-slate-950 opacity-60 hover:opacity-100'}`}
-                        />
+                        <button key={color} type="button" onClick={() => setSelectedIconColor(color)} style={{ backgroundColor: color }} className={`w-5 h-5 md:w-6 md:h-6 shrink-0 transition-all border-2 ${selectedIconColor === color ? 'border-slate-950 dark:border-white ring-2 ring-slate-100 dark:ring-slate-800 scale-125' : 'border-white dark:border-slate-950 opacity-60 hover:opacity-100'}`} />
                       ))}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
-
+              
               <div className="space-y-4 md:space-y-5">
                 <SectionLabel number="02" text="Ciclo e Volume Operacional" />
                 <div className="bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 md:p-6 space-y-6">
                   <div className="flex gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-                    {DAYS_OF_WEEK.map(day => (
-                      <button 
-                        key={day} 
-                        type="button" 
-                        onClick={() => toggleDay(day)} 
-                        className={`flex-1 min-w-[36px] py-3 text-[9px] font-bold border transition-all ${selectedDays.includes(day) ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600'}`}
-                      >
-                        {day[0]}
-                      </button>
-                    ))}
+                    {DAYS_OF_WEEK.map(day => (<button key={day} type="button" onClick={() => toggleDay(day)} className={`flex-1 min-w-[36px] py-3 text-[9px] font-bold border transition-all ${selectedDays.includes(day) ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600'}`}>{day[0]}</button>))}
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-50 dark:bg-slate-900 p-4 border border-slate-100 dark:border-slate-800">
                     <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-widest whitespace-nowrap">Meta de Cliques:</span>
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="number" 
-                        min="1" 
-                        value={targetReps || ''} 
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTargetReps(val === '' ? 0 : parseInt(val));
-                        }} 
-                        className="w-16 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 p-2 text-center text-xs font-bold text-slate-950 dark:text-white outline-none focus:border-slate-950 dark:focus:border-white"
-                      />
-                      <span className="text-[7px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight leading-none">Protocolo de <br className="hidden sm:block"/>conclusão diária</span>
-                    </div>
+                    <input type="number" min="1" value={targetReps || ''} onChange={(e) => setTargetReps(e.target.value === '' ? 0 : parseInt(e.target.value))} className="w-16 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 p-2 text-center text-xs font-bold text-slate-950 dark:text-white outline-none focus:border-slate-950 dark:focus:border-white" />
                   </div>
                 </div>
               </div>
@@ -610,18 +547,8 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-6 md:pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-4 md:gap-5">
-                <div className="flex items-center justify-between text-[8px] md:text-[9px] font-black uppercase tracking-widest text-slate-900 dark:text-white">
-                  <span className="flex items-center gap-2"><span className="w-2 h-2 bg-emerald-500"></span> Protocolo Validado</span>
-                  <span className="text-slate-400 dark:text-slate-500">{selectedDays.length > 0 ? `${selectedDays.length} Ciclos` : 'Individual'}</span>
-                </div>
-                <button 
-                  type="submit" 
-                  disabled={!isFormValid}
-                  className="w-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 py-4 md:py-6 font-black text-[10px] md:text-[11px] uppercase tracking-[0.4em] md:tracking-[0.6em] hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-[0.98] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-slate-950 dark:disabled:hover:bg-white disabled:active:scale-100"
-                >
-                  {editingTaskId ? 'ATUALIZAR' : 'CADASTRAR'}
-                </button>
+              <div className="pt-6 md:pt-8 border-t border-slate-100 dark:border-slate-800">
+                <button type="submit" disabled={!isFormValid} className="w-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 py-4 md:py-6 font-black text-[10px] md:text-[11px] uppercase tracking-[0.4em] md:tracking-[0.6em] hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-[0.98] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed">{editingTaskId ? 'ATUALIZAR' : 'CADASTRAR'}</button>
               </div>
             </form>
           </section>
@@ -632,29 +559,9 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 animate-fade-in bg-slate-950/40 dark:bg-black/80 backdrop-blur-[4px]">
           <div className="absolute inset-0" onClick={() => setIsDeleteModalOpen(false)}></div>
           <div className="relative w-full max-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-8 space-y-8 animate-slide-up">
-            <div className="space-y-4">
-              <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600 flex items-center gap-3">
-                <span className="w-2 h-2 bg-red-600"></span> CANCELAR REGISTRO?
-              </h3>
-              <p className="text-sm font-bold text-slate-950 dark:text-slate-100 leading-relaxed">
-                Tem certeza que deseja remover este protocolo permanentemente? Todos os dados associados a esta tarefa serão eliminados.
-              </p>
-            </div>
-            
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={confirmDeleteTask}
-                className="w-full bg-red-600 text-white py-4 font-black text-[10px] uppercase tracking-[0.4em] hover:bg-red-700 transition-all active:scale-95"
-              >
-                SIM, CANCELAR
-              </button>
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-950 dark:text-white py-4 font-black text-[10px] uppercase tracking-[0.4em] hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95"
-              >
-                NÃO, MANTER
-              </button>
-            </div>
+            <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600">CANCELAR REGISTRO?</h3>
+            <button onClick={confirmDeleteTask} className="w-full bg-red-600 text-white py-4 font-black text-[10px] uppercase tracking-[0.4em]">SIM, CANCELAR</button>
+            <button onClick={() => setIsDeleteModalOpen(false)} className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-950 dark:text-white py-4 font-black text-[10px] uppercase tracking-[0.4em]">NÃO, MANTER</button>
           </div>
         </div>
       )}
