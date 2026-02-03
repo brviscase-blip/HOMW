@@ -209,84 +209,89 @@ const App: React.FC = () => {
     </label>
   );
 
-  const TaskCard: React.FC<{ task: Task }> = ({ task }) => (
-    <div 
-      className="group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all border-l-4 border-transparent hover:border-l-slate-950 dark:hover:border-l-white"
-      style={{ borderLeftColor: task.status !== TaskStatus.COMPLETED ? 'transparent' : (theme === 'dark' ? '#334155' : '#cbd5e1') }}
-    >
-      {subTab === 'today' && (
-        <button 
-          onClick={() => toggleTaskStatus(task.id)}
-          className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative 
-            ${task.status === TaskStatus.COMPLETED 
-              ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' 
-              : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}
-            hover:border-slate-950 dark:hover:border-white cursor-pointer`}
-        >
-          {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED ? (
-             <div className="flex flex-col items-center">
-               <span className="text-[9px] md:text-[10px] font-bold">{task.currentReps}</span>
-               <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
-               <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
-             </div>
-          ) : (
-            task.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
-          )}
-          {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && (
-            <div 
-              className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
-              style={{ clipPath: `inset(${100 - (task.currentReps / task.targetReps) * 100}% 0 0 0)` }}
-            />
-          )}
-        </button>
-      )}
+  const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
+    // Definimos se os estilos de conclusão devem ser aplicados (somente na guia HOJE)
+    const showAsCompleted = subTab === 'today' && task.status === TaskStatus.COMPLETED;
 
-      <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-        <div className={`${subTab === 'registry' ? 'flex' : 'hidden md:flex'} w-9 h-9 md:w-10 md:h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0 border border-slate-100 dark:border-slate-800 md:border-none`}>
-           <TaskIcon name={task.icon} color={task.iconColor} />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 md:gap-3">
-             <h4 className={`text-sm font-bold tracking-tight truncate ${task.status === TaskStatus.COMPLETED ? 'line-through text-slate-200 dark:text-slate-700' : 'text-slate-950 dark:text-white'}`}>
-               {task.title}
-             </h4>
-             {task.targetReps > 1 && (
-               <span className="text-[8px] md:text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest shrink-0">
-                 [{task.currentReps}/{task.targetReps}]
-               </span>
-             )}
+    return (
+      <div 
+        className="group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all border-l-4 border-transparent hover:border-l-slate-950 dark:hover:border-l-white"
+        style={{ borderLeftColor: showAsCompleted ? (theme === 'dark' ? '#334155' : '#cbd5e1') : 'transparent' }}
+      >
+        {subTab === 'today' && (
+          <button 
+            onClick={() => toggleTaskStatus(task.id)}
+            className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative 
+              ${task.status === TaskStatus.COMPLETED 
+                ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' 
+                : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}
+              hover:border-slate-950 dark:hover:border-white cursor-pointer`}
+          >
+            {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED ? (
+               <div className="flex flex-col items-center">
+                 <span className="text-[9px] md:text-[10px] font-bold">{task.currentReps}</span>
+                 <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
+                 <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
+               </div>
+            ) : (
+              task.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
+            )}
+            {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && (
+              <div 
+                className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
+                style={{ clipPath: `inset(${100 - (task.currentReps / task.targetReps) * 100}% 0 0 0)` }}
+              />
+            )}
+          </button>
+        )}
+
+        <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+          <div className={`${subTab === 'registry' ? 'flex' : 'hidden md:flex'} w-9 h-9 md:w-10 md:h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0 border border-slate-100 dark:border-slate-800 md:border-none`}>
+             <TaskIcon name={task.icon} color={task.iconColor} />
           </div>
-          <div className="flex items-center gap-5 mt-0.5 md:mt-1">
-            <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-500 flex items-center gap-1.5 whitespace-nowrap">
-              {task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-            </span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 md:gap-3">
+               <h4 className={`text-sm font-bold tracking-tight truncate ${showAsCompleted ? 'line-through text-slate-200 dark:text-slate-700' : 'text-slate-950 dark:text-white'}`}>
+                 {task.title}
+               </h4>
+               {task.targetReps > 1 && (
+                 <span className="text-[8px] md:text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest shrink-0">
+                   [{task.currentReps}/{task.targetReps}]
+                 </span>
+               )}
+            </div>
+            <div className="flex items-center gap-5 mt-0.5 md:mt-1">
+              <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-500 flex items-center gap-1.5 whitespace-nowrap">
+                {task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+              </span>
+            </div>
           </div>
         </div>
+        
+        {subTab === 'registry' && (
+          <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+            <button 
+              onClick={() => handleOpenEditTask(task)}
+              className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"
+              title="Editar Protocolo"
+            >
+              <Icons.Edit />
+            </button>
+            <button 
+              onClick={() => {
+                setTaskToDelete(task);
+                setIsDeleteModalOpen(true);
+              }}
+              className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"
+              title="Cancelar Registro"
+            >
+              <Icons.Trash />
+            </button>
+          </div>
+        )}
       </div>
-      
-      {subTab === 'registry' && (
-        <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-          <button 
-            onClick={() => handleOpenEditTask(task)}
-            className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"
-            title="Editar Protocolo"
-          >
-            <Icons.Edit />
-          </button>
-          <button 
-            onClick={() => {
-              setTaskToDelete(task);
-              setIsDeleteModalOpen(true);
-            }}
-            className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"
-            title="Cancelar Registro"
-          >
-            <Icons.Trash />
-          </button>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className={`min-h-screen flex flex-col md:flex-row bg-white dark:bg-slate-950 text-slate-950 dark:text-white font-roboto transition-colors duration-300`}>
