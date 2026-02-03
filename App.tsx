@@ -3,12 +3,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Task, Priority, TaskStatus } from './types';
 import { Icons, CATEGORIES, DAYS_OF_WEEK, TASK_COLORS } from './constants';
 
-type Tab = 'today' | 'tasks';
+type Tab = 'tasks';
 type Theme = 'light' | 'dark';
 
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [activeTab, setActiveTab] = useState<Tab>('today');
+  const [activeTab, setActiveTab] = useState<Tab>('tasks');
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('zenflow_theme');
     return (saved as Theme) || 'light';
@@ -53,22 +53,9 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const todayDayName = useMemo(() => {
-    const d = new Date();
-    return DAYS_OF_WEEK[d.getDay()];
-  }, []);
-
   const filteredTasks = useMemo(() => {
-    if (activeTab === 'today') {
-      return tasks.filter(t => {
-        if (t.dueDate === todayStr) return true;
-        if (t.days && t.days.includes(todayDayName)) return true;
-        return false;
-      });
-    }
     return tasks;
-  }, [tasks, activeTab, todayStr, todayDayName]);
+  }, [tasks]);
 
   const isFormValid = useMemo(() => {
     return title.trim() !== '' && targetReps > 0;
@@ -81,7 +68,7 @@ const App: React.FC = () => {
   const handleOpenNewTask = () => {
     setEditingTaskId(null);
     setTitle('');
-    setDueDate(todayStr);
+    setDueDate(new Date().toISOString().split('T')[0]);
     setSelectedDays([]);
     setTargetReps(1);
     setSelectedIcon('List');
@@ -218,17 +205,8 @@ const App: React.FC = () => {
 
         <nav className="flex flex-row md:flex-col gap-1 md:gap-2 flex-1 md:overflow-visible overflow-x-auto scrollbar-hide">
           <button 
-            onClick={() => setActiveTab('today')}
-            className={`flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap ${activeTab === 'today' ? 'bg-slate-900 text-white md:border-l-4 border-b-4 md:border-b-0 border-white' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <div className="w-4 h-4 flex items-center justify-center text-white">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="0" ry="0"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            </div>
-            HOJE
-          </button>
-          <button 
             onClick={() => setActiveTab('tasks')}
-            className={`flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap ${activeTab === 'tasks' ? 'bg-slate-900 text-white md:border-l-4 border-b-4 md:border-b-0 border-white' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap bg-slate-900 text-white md:border-l-4 border-b-4 md:border-b-0 border-white`}
           >
             <Icons.List />
             TAREFAS
@@ -264,7 +242,7 @@ const App: React.FC = () => {
         <header className="p-6 md:p-8 lg:p-10 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col md:flex-row items-start md:items-end justify-between sticky top-0 z-20 gap-4 md:gap-0 transition-colors">
           <div className="animate-slide-down">
             <h2 className="text-2xl md:text-3xl font-roboto font-bold text-slate-950 dark:text-white tracking-tight uppercase leading-none">
-              {activeTab === 'today' ? 'Agenda de Hoje' : 'Gestão de Tarefas'}
+              Gestão de Tarefas
             </h2>
             <p className="text-slate-400 mt-2 font-bold text-[9px] md:text-[10px] uppercase tracking-[0.3em]">
               BASE DE DADOS LINEAR // {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
@@ -284,7 +262,7 @@ const App: React.FC = () => {
             <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 min-h-[500px] md:min-h-[600px] shadow-sm flex flex-col overflow-hidden">
               <div className="p-4 md:p-6 border-b border-slate-300 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
                 <h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">
-                  {activeTab === 'today' ? 'Atividades para este Período' : 'Histórico Completo de Registros'}
+                  Histórico Completo de Registros
                 </h3>
                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
                   {filteredTasks.length} Registros
