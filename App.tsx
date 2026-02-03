@@ -7,7 +7,6 @@ type Tab = 'tasks';
 type SubTab = 'today' | 'registry';
 type Theme = 'light' | 'dark';
 
-// Função auxiliar para formatar data local como YYYY-MM-DD sem desvio de fuso
 const formatLocalDate = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -40,24 +39,24 @@ const App: React.FC = () => {
   const [selectedIconColor, setSelectedIconColor] = useState(TASK_COLORS[0]);
   const [taskType, setTaskType] = useState<TaskType>(TaskType.DAILY);
 
+  // Estado para cadastro rápido na guia HOJE
+  const [quickTaskTitle, setQuickTaskTitle] = useState('');
+
   // Estado para navegação de data na guia HOJE
   const [selectedViewDate, setSelectedViewDate] = useState(new Date());
 
   // Estados do Calendário Customizado
   const [viewDate, setViewDate] = useState(new Date());
 
-  // Carregar Dados
   useEffect(() => {
     const savedTasks = localStorage.getItem('zenflow_tasks');
     if (savedTasks) setTasks(JSON.parse(savedTasks));
   }, []);
 
-  // Salvar Dados
   useEffect(() => {
     localStorage.setItem('zenflow_tasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Aplicar Tema
   useEffect(() => {
     localStorage.setItem('zenflow_theme', theme);
     if (theme === 'dark') {
@@ -68,13 +67,22 @@ const App: React.FC = () => {
   }, [theme]);
 
   const realTodayStr = useMemo(() => formatLocalDate(new Date()), []);
-  
   const viewDateStr = useMemo(() => formatLocalDate(selectedViewDate), [selectedViewDate]);
   const viewDayName = useMemo(() => DAYS_OF_WEEK[selectedViewDate.getDay()], [selectedViewDate]);
 
   const filteredTasks = useMemo(() => {
     if (subTab === 'today') {
       return tasks.filter(t => {
+        // Lógica de flutuação para TAREFA:
+        // Se for TAREFA e estiver PENDENTE, aparece sempre no HOJE.
+        // Se for TAREFA e estiver CONCLUÍDA, aparece apenas no dia em que foi marcada no histórico.
+        const dayState = (t.history && t.history[viewDateStr]) || null;
+        
+        if (t.type === TaskType.TASK) {
+          if (dayState && dayState.status === TaskStatus.COMPLETED) return true;
+          return t.status === TaskStatus.TODO;
+        }
+
         const isTargetDate = t.dueDate === viewDateStr;
         const isTargetDay = t.days && t.days.includes(viewDayName);
         return isTargetDate || isTargetDay;
@@ -84,8 +92,8 @@ const App: React.FC = () => {
   }, [tasks, subTab, viewDateStr, viewDayName]);
 
   const isFormValid = useMemo(() => {
-    return title.trim() !== '' && targetReps > 0;
-  }, [title, targetReps]);
+    return title.trim() !== '';
+  }, [title]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -101,6 +109,31 @@ const App: React.FC = () => {
     setSelectedIconColor(TASK_COLORS[0]);
     setTaskType(TaskType.DAILY);
     setIsModalOpen(true);
+  };
+
+  const handleQuickAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickTaskTitle.trim()) return;
+
+    const newTask: Task = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: quickTaskTitle,
+      description: '',
+      priority: Priority.MEDIUM, 
+      status: TaskStatus.TODO,
+      category: CATEGORIES[0].name, 
+      dueDate: viewDateStr,
+      createdAt: new Date().toISOString(),
+      icon: 'List',
+      iconColor: '#06b6d4', // Cyan padrão para tarefas
+      targetReps: 1,
+      currentReps: 0,
+      type: TaskType.TASK,
+      history: {}
+    };
+
+    setTasks(prev => [newTask, ...prev]);
+    setQuickTaskTitle('');
   };
 
   const handleOpenEditTask = (task: Task) => {
@@ -123,11 +156,11 @@ const App: React.FC = () => {
       setTasks(prev => prev.map(t => t.id === editingTaskId ? {
         ...t,
         title,
-        dueDate,
-        days: selectedDays.length > 0 ? selectedDays : undefined,
+        dueDate: taskType === TaskType.TASK ? t.dueDate : dueDate,
+        days: taskType === TaskType.TASK ? undefined : (selectedDays.length > 0 ? selectedDays : undefined),
         icon: selectedIcon,
         iconColor: selectedIconColor,
-        targetReps: Math.max(1, targetReps),
+        targetReps: taskType === TaskType.TASK ? 1 : Math.max(1, targetReps),
         type: taskType
       } : t));
     } else {
@@ -139,11 +172,11 @@ const App: React.FC = () => {
         status: TaskStatus.TODO,
         category: CATEGORIES[0].name, 
         dueDate,
-        days: selectedDays.length > 0 ? selectedDays : undefined,
+        days: taskType === TaskType.TASK ? undefined : (selectedDays.length > 0 ? selectedDays : undefined),
         createdAt: new Date().toISOString(),
         icon: selectedIcon,
         iconColor: selectedIconColor,
-        targetReps: Math.max(1, targetReps),
+        targetReps: taskType === TaskType.TASK ? 1 : Math.max(1, targetReps),
         currentReps: 0,
         type: taskType,
         history: {}
@@ -190,8 +223,12 @@ const App: React.FC = () => {
           }
         }
 
+        // Se for tipo TAREFA, atualizamos também o status global para controlar a flutuação
+        const globalStatus = (t.type === TaskType.TASK) ? nextStatus : t.status;
+
         return {
           ...t,
+          status: globalStatus,
           history: {
             ...history,
             [viewDateStr]: { currentReps: nextReps, status: nextStatus }
@@ -215,14 +252,9 @@ const App: React.FC = () => {
     const month = viewDate.getMonth();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
     const days = [];
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(null);
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(new Date(year, month, i));
-    }
+    for (let i = 0; i < firstDayOfMonth; i++) { days.push(null); }
+    for (let i = 1; i <= daysInMonth; i++) { days.push(new Date(year, month, i)); }
     return days;
   }, [viewDate]);
 
@@ -261,91 +293,53 @@ const App: React.FC = () => {
     const dayState = (task.history && task.history[viewDateStr]) || { currentReps: 0, status: TaskStatus.TODO };
     const showAsCompleted = subTab === 'today' && dayState.status === TaskStatus.COMPLETED;
 
+    const getTypeColor = () => {
+      switch(task.type) {
+        case TaskType.HABIT: return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400';
+        case TaskType.DAILY: return 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400';
+        case TaskType.TASK: return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-400';
+        default: return '';
+      }
+    };
+
     return (
-      <div 
-        className={`group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent 
-          ${showAsCompleted 
-            ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' 
-            : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}
-        `}
-      >
+      <div className={`group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}>
         {subTab === 'today' && (
-          <button 
-            onClick={() => toggleTaskStatus(task.id)}
-            className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative 
-              ${dayState.status === TaskStatus.COMPLETED 
-                ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
-                : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}
-              hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}
-          >
+          <button onClick={() => toggleTaskStatus(task.id)} className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}>
             {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED ? (
                <div className="flex flex-col items-center">
                  <span className="text-[9px] md:text-[10px] font-bold">{dayState.currentReps}</span>
                  <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
                  <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
                </div>
-            ) : (
-              dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
-            )}
+            ) : (dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />)}
             {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED && (
-              <div 
-                className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
-                style={{ clipPath: `inset(${100 - (dayState.currentReps / task.targetReps) * 100}% 0 0 0)` }}
-              />
+              <div className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" style={{ clipPath: `inset(${100 - (dayState.currentReps / task.targetReps) * 100}% 0 0 0)` }} />
             )}
           </button>
         )}
-
         <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
           <div className={`${subTab === 'registry' ? 'flex' : 'hidden md:flex'} w-9 h-9 md:w-10 md:h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0 border border-slate-100 dark:border-slate-800 md:border-none`}>
              <TaskIcon name={task.icon} color={showAsCompleted ? '#10b981' : task.iconColor} />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 md:gap-3">
-               <h4 className={`text-sm font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400' : 'text-slate-950 dark:text-white'}`}>
-                 {task.title}
-               </h4>
-               {showAsCompleted && (
-                 <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">
-                    OK // OPERAÇÃO CONCLUÍDA
-                 </span>
-               )}
-               <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${task.type === TaskType.HABIT ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'}`}>
-                 {task.type}
-               </span>
-               {task.targetReps > 1 && (
-                 <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>
-                   [{dayState.currentReps}/{task.targetReps}]
-                 </span>
-               )}
+               <h4 className={`text-sm font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
+               {showAsCompleted && <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">OK // OPERAÇÃO CONCLUÍDA</span>}
+               <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
+               {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>[{dayState.currentReps}/{task.targetReps}]</span>}
             </div>
             <div className="flex items-center gap-5 mt-0.5 md:mt-1">
               <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : 'text-slate-300 dark:text-slate-500'}`}>
-                {task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                {task.type === TaskType.TASK ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FLUTUANTE // AGUARDANDO') : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))}
               </span>
             </div>
           </div>
         </div>
-        
         {subTab === 'registry' && (
           <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-            <button 
-              onClick={() => handleOpenEditTask(task)}
-              className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"
-              title="Editar Protocolo"
-            >
-              <Icons.Edit />
-            </button>
-            <button 
-              onClick={() => {
-                setTaskToDelete(task);
-                setIsDeleteModalOpen(true);
-              }}
-              className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"
-              title="Cancelar Registro"
-            >
-              <Icons.Trash />
-            </button>
+            <button onClick={() => handleOpenEditTask(task)} className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"><Icons.Edit /></button>
+            <button onClick={() => { setTaskToDelete(task); setIsDeleteModalOpen(true); }} className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"><Icons.Trash /></button>
           </div>
         )}
       </div>
@@ -360,82 +354,41 @@ const App: React.FC = () => {
             <div className="w-5 h-5 md:w-6 md:h-6 bg-white flex items-center justify-center text-slate-950 font-black text-[10px] md:text-xs">H</div>
             <h1 className="text-[10px] md:text-sm font-roboto font-bold tracking-[0.2em] text-white uppercase">HOME</h1>
           </div>
-          
-          <button 
-            onClick={toggleTheme}
-            className="md:hidden flex items-center justify-center w-8 h-8 text-slate-400"
-          >
-            {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
-          </button>
+          <button onClick={toggleTheme} className="md:hidden flex items-center justify-center w-8 h-8 text-slate-400">{theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}</button>
         </div>
-
         <nav className="flex flex-row md:flex-col gap-1 md:gap-2 flex-1 md:overflow-visible overflow-x-auto scrollbar-hide">
-          <button 
-            onClick={() => setActiveTab('tasks')}
-            className={`flex items-center gap-3 px-3 md:px-5 py-2 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap bg-slate-900 text-white md:border-l-4 border-b-2 md:border-b-0 border-white`}
-          >
-            <Icons.List />
-            TAREFAS
-          </button>
-          
+          <button onClick={() => setActiveTab('tasks')} className={`flex items-center gap-3 px-3 md:px-5 py-2 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap bg-slate-900 text-white md:border-l-4 border-b-2 md:border-b-0 border-white`}><Icons.List /> TAREFAS</button>
           <div className="hidden md:block mt-12 px-2">
             <p className="text-[8px] font-bold text-slate-600 uppercase tracking-[0.4em] mb-6">Métricas Gerais</p>
             <div className="space-y-8">
                <div className="border-l border-slate-800 pl-4">
                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Pendentes</p>
-                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.length - tasks.filter(t => {
-                   const dayState = (t.history && t.history[viewDateStr]) || { status: TaskStatus.TODO };
-                   return dayState.status === TaskStatus.COMPLETED;
-                 }).length}</p>
+                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.filter(t => t.status === TaskStatus.TODO).length}</p>
                </div>
                <div className="border-l border-slate-800 pl-4">
                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Concluídas</p>
-                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.filter(t => {
-                   const dayState = (t.history && t.history[viewDateStr]) || { status: TaskStatus.TODO };
-                   return dayState.status === TaskStatus.COMPLETED;
-                 }).length}</p>
+                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.filter(t => t.status === TaskStatus.COMPLETED).length}</p>
                </div>
             </div>
           </div>
         </nav>
-
         <div className="hidden md:block mt-auto pt-8 border-t border-slate-900">
-          <button 
-            onClick={toggleTheme}
-            className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2"
-          >
-            {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
-            {theme === 'light' ? 'DARK MODE' : 'LIGHT MODE'}
-          </button>
+          <button onClick={toggleTheme} className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2">{theme === 'light' ? <Icons.Moon /> : <Icons.Sun />} {theme === 'light' ? 'DARK MODE' : 'LIGHT MODE'}</button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-y-auto bg-slate-50/20 dark:bg-slate-900/50">
         <header className="px-4 py-4 md:p-8 lg:p-10 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col md:flex-row items-start md:items-end justify-between sticky top-0 z-20 gap-2 md:gap-0 transition-colors">
           <div className="animate-slide-down">
-            <h2 className="text-lg md:text-3xl font-roboto font-bold text-slate-950 dark:text-white tracking-tight uppercase leading-none">
-              Gestão de Tarefas
-            </h2>
-            <p className="text-slate-400 mt-1 md:mt-2 font-bold text-[8px] md:text-[10px] uppercase tracking-[0.3em]">
-              BASE DE DADOS // {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-            </p>
+            <h2 className="text-lg md:text-3xl font-roboto font-bold text-slate-950 dark:text-white tracking-tight uppercase leading-none">Gestão de Tarefas</h2>
+            <p className="text-slate-400 mt-1 md:mt-2 font-bold text-[8px] md:text-[10px] uppercase tracking-[0.3em]">BASE DE DADOS // {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</p>
           </div>
         </header>
 
         <div className="flex-1 flex flex-col p-3 md:p-6 lg:p-10 gap-4 md:gap-6">
           <div className="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
-            <button 
-              onClick={() => setSubTab('today')}
-              className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'today' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-            >
-              Hoje
-            </button>
-            <button 
-              onClick={() => setSubTab('registry')}
-              className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'registry' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-            >
-              Cadastro
-            </button>
+            <button onClick={() => setSubTab('today')} className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'today' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Hoje</button>
+            <button onClick={() => setSubTab('registry')} className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'registry' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Cadastro</button>
           </div>
 
           <section className="animate-fade-in flex-1 flex flex-col">
@@ -444,81 +397,49 @@ const App: React.FC = () => {
                 <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10 gap-4">
                   <div className="flex flex-col md:flex-row md:items-center gap-4">
                     <div className="flex items-center gap-1">
-                      <button 
-                        onClick={() => navigateDay(-1)}
-                        className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]"
-                      >
-                        ◄
-                      </button>
-                      <button 
-                        onClick={resetToToday}
-                        className={`px-3 h-9 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 transition-all font-black text-[9px] tracking-widest uppercase ${viewDateStr === realTodayStr ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-white dark:bg-slate-950 text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white'}`}
-                      >
-                        Hoje
-                      </button>
-                      <button 
-                        onClick={() => navigateDay(1)}
-                        className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]"
-                      >
-                        ►
-                      </button>
+                      <button onClick={() => navigateDay(-1)} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]">◄</button>
+                      <button onClick={resetToToday} className={`px-3 h-9 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 transition-all font-black text-[9px] tracking-widest uppercase ${viewDateStr === realTodayStr ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-white dark:bg-slate-950 text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white'}`}>Hoje</button>
+                      <button onClick={() => navigateDay(1)} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]">►</button>
                     </div>
-
-                    <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2 whitespace-nowrap">
-                      <span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> 
-                      Operação: {viewDateStr === realTodayStr ? 'HOJE' : selectedViewDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </h3>
+                    <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2 whitespace-nowrap"><span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> Operação: {viewDateStr === realTodayStr ? 'HOJE' : selectedViewDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
                   </div>
-
-                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
-                    {filteredTasks.length} Registros
-                  </span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} Registros</span>
                 </div>
+
+                {/* BARRA DE CADASTRO RÁPIDO */}
+                <form onSubmit={handleQuickAdd} className="px-4 py-3 md:px-6 md:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
+                  <div className="w-8 h-8 flex items-center justify-center text-cyan-500"><Icons.Plus /></div>
+                  <input 
+                    type="text" 
+                    value={quickTaskTitle}
+                    onChange={(e) => setQuickTaskTitle(e.target.value)}
+                    placeholder="Adicionar tarefa rápida para flutuar..."
+                    className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700"
+                  />
+                  {quickTaskTitle && (
+                    <button type="submit" className="text-[9px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-widest animate-fade-in">ENTER PARA SALVAR</button>
+                  )}
+                </form>
 
                 <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
                   {filteredTasks.length === 0 ? (
                     <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
-                      <div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4">
-                        <Icons.Check />
-                      </div>
+                      <div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4"><Icons.Check /></div>
                       <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro para este ciclo.</p>
                     </div>
-                  ) : (
-                    filteredTasks.map(task => <TaskCard key={task.id} task={task} />)
-                  )}
+                  ) : (filteredTasks.map(task => <TaskCard key={task.id} task={task} />))}
                 </div>
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
                 <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 gap-3">
-                  <div className="flex flex-col">
-                    <h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">
-                      Histórico Completo
-                    </h3>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                      {tasks.length} Protocolos
-                    </span>
-                  </div>
-                  
-                  <button 
-                    onClick={handleOpenNewTask}
-                    className="flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-4 py-2.5 md:px-6 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"
-                  >
-                    <Icons.Plus /> Novo Registro
-                  </button>
+                  <div className="flex flex-col"><h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">Histórico Completo</h3><span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{tasks.length} Protocolos</span></div>
+                  <button onClick={handleOpenNewTask} className="flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-4 py-2.5 md:px-6 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"><Icons.Plus /> Novo Registro</button>
                 </div>
-
                 <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
                   {tasks.length === 0 ? (
-                    <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
-                      <div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4">
-                        <Icons.List />
-                      </div>
-                      <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado.</p>
-                    </div>
-                  ) : (
-                    tasks.map(task => <TaskCard key={task.id} task={task} />)
-                  )}
+                    <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40"><div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4"><Icons.List /></div><p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado.</p></div>
+                  ) : (tasks.map(task => <TaskCard key={task.id} task={task} />))}
                 </div>
               </div>
             )}
@@ -534,26 +455,17 @@ const App: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-6 animate-fade-in overflow-y-auto bg-slate-950/25 dark:bg-black/60 backdrop-blur-[6px]">
           <div className="absolute inset-0" onClick={() => setIsModalOpen(false)}></div>
-          
           <section className="relative w-full max-w-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl font-roboto overflow-hidden">
             <div className="bg-slate-950 dark:bg-slate-900 text-white p-5 md:p-6 flex items-center justify-between">
-              <div>
-                <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] md:tracking-[0.5em] leading-none">
-                  {editingTaskId ? 'Editar Registro de Fluxo' : 'Novo Registro de Fluxo'}
-                </h3>
-                <p className="text-[7px] opacity-40 font-bold uppercase mt-1 tracking-widest">Protocolo de Configuração v2.5</p>
-              </div>
+              <div><h3 className="text-[10px] font-bold uppercase tracking-[0.4em] leading-none">{editingTaskId ? 'Editar Registro de Fluxo' : 'Novo Registro de Fluxo'}</h3><p className="text-[7px] opacity-40 font-bold uppercase mt-1 tracking-widest">Protocolo de Configuração v2.5</p></div>
               <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 flex items-center justify-center text-sm font-bold hover:bg-white/10 transition-colors opacity-60 hover:opacity-100">×</button>
             </div>
-            
             <form onSubmit={handleSubmitTask} className="p-5 md:p-8 space-y-8 md:space-y-10 overflow-y-auto max-h-[85vh] scrollbar-hide">
               <div className="space-y-3 md:space-y-4">
                 <SectionLabel number="01" text="Definição e Identidade" />
                 <div className="flex gap-2">
-                  <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="EX: Meditação, Estudo, Treino..." className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 dark:text-white outline-none focus:border-slate-400 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-200 dark:placeholder:text-slate-700" />
-                  <button type="button" onClick={() => setIsStylePickerOpen(!isStylePickerOpen)} className={`w-14 md:w-16 flex items-center justify-center transition-all border shrink-0 ${isStylePickerOpen ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white shadow-inner' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-900'}`}>
-                    <TaskIcon name={selectedIcon} color={isStylePickerOpen && theme === 'dark' ? '#0f172a' : selectedIconColor} className="scale-125" />
-                  </button>
+                  <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Nome da operação..." className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 dark:text-white outline-none focus:border-slate-400 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-200 dark:placeholder:text-slate-700" />
+                  <button type="button" onClick={() => setIsStylePickerOpen(!isStylePickerOpen)} className={`w-14 md:w-16 flex items-center justify-center transition-all border shrink-0 ${isStylePickerOpen ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white shadow-inner' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-900'}`}><TaskIcon name={selectedIcon} color={isStylePickerOpen && theme === 'dark' ? '#0f172a' : selectedIconColor} className="scale-125" /></button>
                 </div>
                 {isStylePickerOpen && (
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 md:p-6 border border-slate-100 dark:border-slate-800 space-y-6 md:space-y-8 animate-slide-down">
@@ -570,117 +482,39 @@ const App: React.FC = () => {
                   </div>
                 )}
               </div>
-              
               <div className="space-y-4 md:space-y-5">
                 <SectionLabel number="02" text="Tipo de Registro" />
-                <div className="flex gap-2">
-                  <button 
-                    type="button" 
-                    onClick={() => setTaskType(TaskType.HABIT)} 
-                    className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.HABIT ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}
-                  >
-                    HÁBITO
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setTaskType(TaskType.DAILY)} 
-                    className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.DAILY ? 'bg-amber-600 border-amber-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}
-                  >
-                    COTIDIANO
-                  </button>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => {setTaskType(TaskType.HABIT); if(selectedIconColor === '#f59e0b' || selectedIconColor === '#06b6d4') setSelectedIconColor('#8b5cf6')}} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.HABIT ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}>HÁBITO</button>
+                  <button type="button" onClick={() => {setTaskType(TaskType.DAILY); if(selectedIconColor === '#8b5cf6' || selectedIconColor === '#06b6d4') setSelectedIconColor('#f59e0b')}} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.DAILY ? 'bg-amber-600 border-amber-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}>COTIDIANO</button>
                 </div>
               </div>
-
-              <div className="space-y-4 md:space-y-5">
-                <SectionLabel number="03" text="Ciclo e Volume Operacional" />
-                <div className="bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 md:p-6 space-y-6">
-                  <div className="flex gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-                    {DAYS_OF_WEEK.map(day => (<button key={day} type="button" onClick={() => toggleDay(day)} className={`flex-1 min-w-[36px] py-3 text-[9px] font-bold border transition-all ${selectedDays.includes(day) ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600'}`}>{day[0]}</button>))}
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-50 dark:bg-slate-900 p-4 border border-slate-100 dark:border-slate-800">
-                    <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-widest whitespace-nowrap">Meta de Cliques:</span>
-                    <input type="number" min="1" value={targetReps || ''} onChange={(e) => setTargetReps(e.target.value === '' ? 0 : parseInt(e.target.value))} className="w-16 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 p-2 text-center text-xs font-bold text-slate-950 dark:text-white outline-none focus:border-slate-950 dark:focus:border-white" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4 md:space-y-5 pb-6">
-                <SectionLabel number="04" text="Início da Operação" />
-                <div className="space-y-3">
-                  <button 
-                    type="button"
-                    onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                    className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 md:p-5 group hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all shadow-sm"
-                  >
-                    <div className="flex items-center gap-3 md:gap-4">
-                      <div className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 group-hover:border-slate-400 dark:group-hover:border-slate-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" className="text-slate-950 dark:text-white"><rect x="3" y="4" width="18" height="18" rx="0" ry="0"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                      </div>
-                      <span className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-white uppercase tracking-widest">
-                        {new Date(dueDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}
-                      </span>
-                    </div>
-                    <span className={`text-[10px] text-slate-950 dark:text-white transition-transform duration-300 ${isCalendarOpen ? 'rotate-180' : ''}`}>▼</span>
-                  </button>
-
-                  <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isCalendarOpen ? 'max-h-[400px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
-                    <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 md:p-6 shadow-sm">
-                      <div className="flex items-center justify-between mb-4 md:mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
-                        <button type="button" onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-950 dark:text-white font-black">◄</button>
-                        <h4 className="text-[9px] md:text-[10px] font-black tracking-[0.4em] text-slate-950 dark:text-white">{viewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}</h4>
-                        <button type="button" onClick={() => changeMonth(1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-950 dark:text-white font-black">►</button>
-                      </div>
-                      <div className="grid grid-cols-7 gap-1 text-center">
-                        {DAYS_OF_WEEK.map(d => (
-                          <span key={d} className="text-[6px] font-black text-slate-400 uppercase mb-3">{d[0]}</span>
-                        ))}
-                        {calendarDays.map((day, idx) => {
-                          if (!day) return <div key={`empty-${idx}`} className="aspect-square" />;
-                          const selectable = isDaySelectable(day);
-                          const isSelected = formatLocalDate(day) === dueDate;
-                          return (
-                            <button
-                              key={day.toISOString()}
-                              type="button"
-                              disabled={!selectable}
-                              onClick={() => {
-                                setDueDate(formatLocalDate(day));
-                                setIsCalendarOpen(false);
-                              }}
-                              className={`aspect-square flex items-center justify-center text-[10px] font-bold transition-all relative
-                                ${isSelected ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-lg z-10' : selectable ? 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200' : 'text-slate-100 dark:text-slate-900 cursor-not-allowed opacity-10'}
-                              `}
-                            >
-                              {day.getDate()}
-                              {selectedDays.includes(DAYS_OF_WEEK[day.getDay()]) && !isSelected && selectable && <div className="absolute bottom-1.5 w-1 h-1 bg-slate-950 dark:bg-white rounded-full"></div>}
-                            </button>
-                          );
-                        })}
-                      </div>
+              {taskType !== TaskType.TASK && (
+                <>
+                  <div className="space-y-4 md:space-y-5">
+                    <SectionLabel number="03" text="Ciclo e Volume Operacional" />
+                    <div className="bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 md:p-6 space-y-6">
+                      <div className="flex gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">{DAYS_OF_WEEK.map(day => (<button key={day} type="button" onClick={() => toggleDay(day)} className={`flex-1 min-w-[36px] py-3 text-[9px] font-bold border transition-all ${selectedDays.includes(day) ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600'}`}>{day[0]}</button>))}</div>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-50 dark:bg-slate-900 p-4 border border-slate-100 dark:border-slate-800"><span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-widest whitespace-nowrap">Meta de Cliques:</span><input type="number" min="1" value={targetReps || ''} onChange={(e) => setTargetReps(e.target.value === '' ? 0 : parseInt(e.target.value))} className="w-16 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 p-2 text-center text-xs font-bold text-slate-950 dark:text-white outline-none focus:border-slate-950 dark:focus:border-white" /></div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="pt-6 md:pt-8 border-t border-slate-100 dark:border-slate-800">
-                <button type="submit" disabled={!isFormValid} className="w-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 py-4 md:py-6 font-black text-[10px] md:text-[11px] uppercase tracking-[0.4em] md:tracking-[0.6em] hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-[0.98] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed">{editingTaskId ? 'ATUALIZAR' : 'CADASTRAR'}</button>
-              </div>
+                  <div className="space-y-4 md:space-y-5 pb-6">
+                    <SectionLabel number="04" text="Início da Operação" />
+                    <button type="button" onClick={() => setIsCalendarOpen(!isCalendarOpen)} className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 md:p-5 group hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all shadow-sm"><div className="flex items-center gap-3 md:gap-4"><div className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 group-hover:border-slate-400 dark:group-hover:border-slate-600"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" className="text-slate-950 dark:text-white"><rect x="3" y="4" width="18" height="18" rx="0" ry="0"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-white uppercase tracking-widest">{new Date(dueDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}</span></div><span className={`text-[10px] transition-transform duration-300 ${isCalendarOpen ? 'rotate-180' : ''}`}>▼</span></button>
+                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isCalendarOpen ? 'max-h-[400px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+                      <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 md:p-6 shadow-sm"><div className="flex items-center justify-between mb-4 md:mb-6 border-b border-slate-100 dark:border-slate-800 pb-4"><button type="button" onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-950 dark:text-white font-black">◄</button><h4 className="text-[9px] md:text-[10px] font-black tracking-[0.4em] text-slate-950 dark:text-white">{viewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}</h4><button type="button" onClick={() => changeMonth(1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-950 dark:text-white font-black">►</button></div><div className="grid grid-cols-7 gap-1 text-center">{DAYS_OF_WEEK.map(d => (<span key={d} className="text-[6px] font-black text-slate-400 uppercase mb-3">{d[0]}</span>))}{calendarDays.map((day, idx) => { if (!day) return <div key={`empty-${idx}`} className="aspect-square" />; const selectable = isDaySelectable(day); const isSelected = formatLocalDate(day) === dueDate; return (<button key={day.toISOString()} type="button" disabled={!selectable} onClick={() => { setDueDate(formatLocalDate(day)); setIsCalendarOpen(false); }} className={`aspect-square flex items-center justify-center text-[10px] font-bold transition-all relative ${isSelected ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-lg z-10' : selectable ? 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200' : 'text-slate-100 dark:text-slate-900 cursor-not-allowed opacity-10'}`}>{day.getDate()}{selectedDays.includes(DAYS_OF_WEEK[day.getDay()]) && !isSelected && selectable && <div className="absolute bottom-1.5 w-1 h-1 bg-slate-950 dark:bg-white rounded-full"></div>}</button>); })}</div></div>
+                    </div>
+                  </div>
+                </>
+              )}
+              <div className="pt-6 md:pt-8 border-t border-slate-100 dark:border-slate-800"><button type="submit" disabled={!isFormValid} className="w-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 py-4 md:py-6 font-black text-[10px] md:text-[11px] uppercase tracking-[0.4em] hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-[0.98] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed">{editingTaskId ? 'ATUALIZAR' : 'CADASTRAR'}</button></div>
             </form>
           </section>
         </div>
       )}
-
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 animate-fade-in bg-slate-950/40 dark:bg-black/80 backdrop-blur-[4px]">
-          <div className="absolute inset-0" onClick={() => setIsDeleteModalOpen(false)}></div>
-          <div className="relative w-full max-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-8 space-y-8 animate-slide-up">
-            <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600">CANCELAR REGISTRO?</h3>
-            <button onClick={confirmDeleteTask} className="w-full bg-red-600 text-white py-4 font-black text-[10px] uppercase tracking-[0.4em]">SIM, CANCELAR</button>
-            <button onClick={() => setIsDeleteModalOpen(false)} className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-950 dark:text-white py-4 font-black text-[10px] uppercase tracking-[0.4em]">NÃO, MANTER</button>
-          </div>
-        </div>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 animate-fade-in bg-slate-950/40 dark:bg-black/80 backdrop-blur-[4px]"><div className="absolute inset-0" onClick={() => setIsDeleteModalOpen(false)}></div><div className="relative w-full max-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-8 space-y-8 animate-slide-up"><h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600">CANCELAR REGISTRO?</h3><button onClick={confirmDeleteTask} className="w-full bg-red-600 text-white py-4 font-black text-[10px] uppercase tracking-[0.4em]">SIM, CANCELAR</button><button onClick={() => setIsDeleteModalOpen(false)} className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-950 dark:text-white py-4 font-black text-[10px] uppercase tracking-[0.4em]">NÃO, MANTER</button></div></div>
       )}
-
       <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slide-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }

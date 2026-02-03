@@ -13,7 +13,8 @@ export enum TaskStatus {
 
 export enum TaskType {
   HABIT = 'HABITO',
-  DAILY = 'COTIDIANO'
+  DAILY = 'COTIDIANO',
+  TASK = 'TAREFA'
 }
 
 export interface TaskHistory {
