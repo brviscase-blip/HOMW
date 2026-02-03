@@ -7,6 +7,14 @@ type Tab = 'tasks';
 type SubTab = 'today' | 'registry';
 type Theme = 'light' | 'dark';
 
+// Função auxiliar para formatar data local como YYYY-MM-DD sem desvio de fuso
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
@@ -25,7 +33,7 @@ const App: React.FC = () => {
   // Estados para o formulário de cadastro/edição
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
-  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(formatLocalDate(new Date()));
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [targetReps, setTargetReps] = useState<number>(1);
   const [selectedIcon, setSelectedIcon] = useState('List');
@@ -58,9 +66,9 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  const realTodayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const realTodayStr = useMemo(() => formatLocalDate(new Date()), []);
   
-  const viewDateStr = useMemo(() => selectedViewDate.toISOString().split('T')[0], [selectedViewDate]);
+  const viewDateStr = useMemo(() => formatLocalDate(selectedViewDate), [selectedViewDate]);
   const viewDayName = useMemo(() => DAYS_OF_WEEK[selectedViewDate.getDay()], [selectedViewDate]);
 
   const filteredTasks = useMemo(() => {
@@ -85,7 +93,7 @@ const App: React.FC = () => {
   const handleOpenNewTask = () => {
     setEditingTaskId(null);
     setTitle('');
-    setDueDate(new Date().toISOString().split('T')[0]);
+    setDueDate(formatLocalDate(new Date()));
     setSelectedDays([]);
     setTargetReps(1);
     setSelectedIcon('List');
@@ -225,7 +233,6 @@ const App: React.FC = () => {
   );
 
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
-    // Definimos se os estilos de conclusão devem ser aplicados (somente na guia HOJE)
     const showAsCompleted = subTab === 'today' && task.status === TaskStatus.COMPLETED;
 
     return (
@@ -567,14 +574,14 @@ const App: React.FC = () => {
                         {calendarDays.map((day, idx) => {
                           if (!day) return <div key={`empty-${idx}`} className="aspect-square" />;
                           const selectable = isDaySelectable(day);
-                          const isSelected = day.toISOString().split('T')[0] === dueDate;
+                          const isSelected = formatLocalDate(day) === dueDate;
                           return (
                             <button
                               key={day.toISOString()}
                               type="button"
                               disabled={!selectable}
                               onClick={() => {
-                                setDueDate(day.toISOString().split('T')[0]);
+                                setDueDate(formatLocalDate(day));
                                 setIsCalendarOpen(false);
                               }}
                               className={`aspect-square flex items-center justify-center text-[10px] font-bold transition-all relative
