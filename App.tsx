@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, Priority, TaskStatus, TaskHistory, TaskType } from './types';
-import { Icons, CATEGORIES, DAYS_OF_WEEK, TASK_COLORS } from './constants';
+import { Icons, CATEGORIES, DAYS_OF_WEEK } from './constants';
 import { supabase } from './supabaseClient';
 
 type Tab = 'tasks';
@@ -123,18 +123,14 @@ const App: React.FC = () => {
       return tasks.filter(t => {
         const dayState = (t.history && t.history[viewDateStr]) || null;
         
-        // Regra para TAREFA (One-off/Flutuante)
         if (t.type === TaskType.TASK) {
           if (dayState && dayState.status === TaskStatus.COMPLETED) return true;
           return t.status === TaskStatus.TODO;
         }
 
-        // Regra para HÁBITO e COTIDIANO
-        // 1. Deve estar dentro do cronograma (viewDateStr >= t.dueDate)
         const isOnOrAfterStartDate = viewDateStr >= t.dueDate;
         if (!isOnOrAfterStartDate) return false;
 
-        // 2. Deve coincidir com a data específica ou com o dia da semana da rotina
         const isTargetDate = t.dueDate === viewDateStr;
         const isTargetDay = t.days && t.days.includes(viewDayName);
         
@@ -374,7 +370,7 @@ const App: React.FC = () => {
         {subTab === 'today' && (
           <div className="flex flex-col items-center gap-2">
             {task.targetReps > 1 && (
-              <div className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest">{dayState.currentReps} <br/> {task.targetReps}</div>
+              <div className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest text-center leading-tight">{dayState.currentReps} <br/> {task.targetReps}</div>
             )}
             <button onClick={() => toggleTaskStatus(task.id)} className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}>
               {dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />}
@@ -384,19 +380,17 @@ const App: React.FC = () => {
             </button>
           </div>
         )}
-        <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 md:gap-3">
-               <h4 className={`text-sm font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
-               {showAsCompleted && <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">OK // OPERAÇÃO CONCLUÍDA</span>}
-               <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
-               {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>[{dayState.currentReps}/{task.targetReps}]</span>}
-            </div>
-            <div className="flex items-center gap-5 mt-0.5 md:mt-1">
-              <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : 'text-slate-300 dark:text-slate-500'}`}>
-                {task.type === TaskType.TASK ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FLUTUANTE // AGUARDANDO') : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))}
-              </span>
-            </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+             <h4 className={`text-sm font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
+             {showAsCompleted && <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">OK // OPERAÇÃO CONCLUÍDA</span>}
+             <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
+             {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>[{dayState.currentReps}/{task.targetReps}]</span>}
+          </div>
+          <div className="flex items-center gap-5 mt-1">
+            <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : 'text-slate-300 dark:text-slate-500'}`}>
+              {task.type === TaskType.TASK ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FLUTUANTE // AGUARDANDO') : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))}
+            </span>
           </div>
         </div>
       </div>
