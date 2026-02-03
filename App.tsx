@@ -4,11 +4,13 @@ import { Task, Priority, TaskStatus } from './types';
 import { Icons, CATEGORIES, DAYS_OF_WEEK, TASK_COLORS } from './constants';
 
 type Tab = 'tasks';
+type SubTab = 'registry' | 'today';
 type Theme = 'light' | 'dark';
 
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
+  const [subTab, setSubTab] = useState<SubTab>('registry');
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('zenflow_theme');
     return (saved as Theme) || 'light';
@@ -53,9 +55,19 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayDayName = useMemo(() => DAYS_OF_WEEK[new Date().getDay()], []);
+
   const filteredTasks = useMemo(() => {
+    if (subTab === 'today') {
+      return tasks.filter(t => {
+        const isTargetDate = t.dueDate === todayStr;
+        const isTargetDay = t.days && t.days.includes(todayDayName);
+        return isTargetDate || isTargetDay;
+      });
+    }
     return tasks;
-  }, [tasks]);
+  }, [tasks, subTab, todayStr, todayDayName]);
 
   const isFormValid = useMemo(() => {
     return title.trim() !== '' && targetReps > 0;
@@ -195,6 +207,78 @@ const App: React.FC = () => {
     </label>
   );
 
+  // Fixed 'key' prop error by using React.FC to properly handle intrinsic attributes in lists
+  const TaskCard: React.FC<{ task: Task }> = ({ task }) => (
+    <div 
+      className="group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all border-l-4 border-transparent hover:border-l-slate-950 dark:hover:border-l-white"
+      style={{ borderLeftColor: task.status !== TaskStatus.COMPLETED ? 'transparent' : (theme === 'dark' ? '#334155' : '#cbd5e1') }}
+    >
+      <button 
+        onClick={() => toggleTaskStatus(task.id)}
+        className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${task.status === TaskStatus.COMPLETED ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-950 dark:hover:border-white'}`}
+      >
+        {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED ? (
+           <div className="flex flex-col items-center">
+             <span className="text-[9px] md:text-[10px] font-bold">{task.currentReps}</span>
+             <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
+             <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
+           </div>
+        ) : (
+          task.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
+        )}
+        {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && (
+          <div 
+            className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
+            style={{ clipPath: `inset(${100 - (task.currentReps / task.targetReps) * 100}% 0 0 0)` }}
+          />
+        )}
+      </button>
+
+      <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+        <div className="hidden md:flex w-10 h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0">
+           <TaskIcon name={task.icon} color={task.iconColor} />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 md:gap-3">
+             <h4 className={`text-sm font-bold tracking-tight truncate ${task.status === TaskStatus.COMPLETED ? 'line-through text-slate-200 dark:text-slate-700' : 'text-slate-950 dark:text-white'}`}>
+               {task.title}
+             </h4>
+             {task.targetReps > 1 && (
+               <span className="text-[8px] md:text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest shrink-0">
+                 [{task.currentReps}/{task.targetReps}]
+               </span>
+             )}
+          </div>
+          <div className="flex items-center gap-5 mt-0.5 md:mt-1">
+            <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-500 flex items-center gap-1.5 whitespace-nowrap">
+              {task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+        <button 
+          onClick={() => handleOpenEditTask(task)}
+          className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"
+          title="Editar Protocolo"
+        >
+          <Icons.Edit />
+        </button>
+        <button 
+          onClick={() => {
+            setTaskToDelete(task);
+            setIsDeleteModalOpen(true);
+          }}
+          className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"
+          title="Cancelar Registro"
+        >
+          <Icons.Trash />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className={`min-h-screen flex flex-col md:flex-row bg-white dark:bg-slate-950 text-slate-950 dark:text-white font-roboto transition-colors duration-300`}>
       <aside className="w-full md:w-64 bg-slate-950 p-6 md:p-8 flex flex-col shrink-0 border-r border-slate-900 z-10">
@@ -248,110 +332,84 @@ const App: React.FC = () => {
               BASE DE DADOS LINEAR // {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
             </p>
           </div>
-          
-          <button 
-            onClick={handleOpenNewTask}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-6 py-3 md:py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"
-          >
-            <Icons.Plus /> Novo Registro
-          </button>
         </header>
 
-        <div className="flex-1 p-4 md:p-6 lg:p-10">
-          <section className="animate-fade-in">
-            <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 min-h-[500px] md:min-h-[600px] shadow-sm flex flex-col overflow-hidden">
-              <div className="p-4 md:p-6 border-b border-slate-300 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-                <h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">
-                  Histórico Completo de Registros
-                </h3>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
-                  {filteredTasks.length} Registros
-                </span>
-              </div>
+        <div className="flex-1 flex flex-col p-4 md:p-6 lg:p-10 gap-6">
+          {/* Sub-Navegação */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
+            <button 
+              onClick={() => setSubTab('registry')}
+              className={`px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'registry' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+            >
+              Cadastro
+            </button>
+            <button 
+              onClick={() => setSubTab('today')}
+              className={`px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'today' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+            >
+              Hoje
+            </button>
+          </div>
 
-              <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
-                {filteredTasks.length === 0 ? (
-                  <div className="p-16 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
-                    <div className="w-12 h-12 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-6">
-                      <Icons.List />
-                    </div>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado.</p>
+          <section className="animate-fade-in flex-1 flex flex-col">
+            {subTab === 'registry' ? (
+              <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 min-h-[500px] md:min-h-[600px] shadow-sm flex flex-col overflow-hidden animate-fade-in">
+                <div className="p-4 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 gap-4">
+                  <div className="flex flex-col">
+                    <h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">
+                      Histórico Completo de Registros
+                    </h3>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                      {tasks.length} Protocolos Cadastrados
+                    </span>
                   </div>
-                ) : (
-                  filteredTasks.map(task => (
-                    <div 
-                      key={task.id} 
-                      className="group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all border-l-4 border-transparent hover:border-l-slate-950 dark:hover:border-l-white"
-                      style={{ borderLeftColor: task.status !== TaskStatus.COMPLETED ? 'transparent' : (theme === 'dark' ? '#334155' : '#cbd5e1') }}
-                    >
-                      <button 
-                        onClick={() => toggleTaskStatus(task.id)}
-                        className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${task.status === TaskStatus.COMPLETED ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-950 dark:hover:border-white'}`}
-                      >
-                        {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED ? (
-                           <div className="flex flex-col items-center">
-                             <span className="text-[9px] md:text-[10px] font-bold">{task.currentReps}</span>
-                             <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
-                             <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
-                           </div>
-                        ) : (
-                          task.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
-                        )}
-                        {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && (
-                          <div 
-                            className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
-                            style={{ clipPath: `inset(${100 - (task.currentReps / task.targetReps) * 100}% 0 0 0)` }}
-                          />
-                        )}
-                      </button>
+                  
+                  <button 
+                    onClick={handleOpenNewTask}
+                    className="flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-6 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"
+                  >
+                    <Icons.Plus /> Novo Registro
+                  </button>
+                </div>
 
-                      <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                        <div className="hidden md:flex w-10 h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0">
-                           <TaskIcon name={task.icon} color={task.iconColor} />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 md:gap-3">
-                             <h4 className={`text-sm font-bold tracking-tight truncate ${task.status === TaskStatus.COMPLETED ? 'line-through text-slate-200 dark:text-slate-700' : 'text-slate-950 dark:text-white'}`}>
-                               {task.title}
-                             </h4>
-                             {task.targetReps > 1 && (
-                               <span className="text-[8px] md:text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest shrink-0">
-                                 [{task.currentReps}/{task.targetReps}]
-                               </span>
-                             )}
-                          </div>
-                          <div className="flex items-center gap-5 mt-0.5 md:mt-1">
-                            <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-500 flex items-center gap-1.5 whitespace-nowrap">
-                              {task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                            </span>
-                          </div>
-                        </div>
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
+                  {tasks.length === 0 ? (
+                    <div className="p-16 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
+                      <div className="w-12 h-12 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-6">
+                        <Icons.List />
                       </div>
-                      
-                      <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => handleOpenEditTask(task)}
-                          className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"
-                          title="Editar Protocolo"
-                        >
-                          <Icons.Edit />
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setTaskToDelete(task);
-                            setIsDeleteModalOpen(true);
-                          }}
-                          className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"
-                          title="Cancelar Registro"
-                        >
-                          <Icons.Trash />
-                        </button>
-                      </div>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado no banco de dados.</p>
                     </div>
-                  ))
-                )}
+                  ) : (
+                    tasks.map(task => <TaskCard key={task.id} task={task} />)
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 min-h-[500px] md:min-h-[600px] shadow-sm flex flex-col overflow-hidden animate-fade-in">
+                <div className="p-4 md:p-6 border-b border-slate-300 dark:border-slate-800 flex items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10">
+                  <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-emerald-500"></span> Operação: Hoje
+                  </h3>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                    {filteredTasks.length} Registros Prioritários
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
+                  {filteredTasks.length === 0 ? (
+                    <div className="p-16 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
+                      <div className="w-12 h-12 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-6">
+                        <Icons.Check />
+                      </div>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro agendado para este período.</p>
+                    </div>
+                  ) : (
+                    filteredTasks.map(task => <TaskCard key={task.id} task={task} />)
+                  )}
+                </div>
+              </div>
+            )}
           </section>
         </div>
 
@@ -556,7 +614,7 @@ const App: React.FC = () => {
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 animate-fade-in bg-slate-950/40 dark:bg-black/80 backdrop-blur-[4px]">
           <div className="absolute inset-0" onClick={() => setIsDeleteModalOpen(false)}></div>
-          <div className="relative w-full max-w-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-8 space-y-8 animate-slide-up">
+          <div className="relative w-full max-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-8 space-y-8 animate-slide-up">
             <div className="space-y-4">
               <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600 flex items-center gap-3">
                 <span className="w-2 h-2 bg-red-600"></span> CANCELAR REGISTRO?
