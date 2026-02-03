@@ -51,9 +51,13 @@ const App: React.FC = () => {
     return tasks;
   }, [tasks, activeTab, todayStr, todayDayName]);
 
+  const isFormValid = useMemo(() => {
+    return title.trim() !== '' && targetReps > 0;
+  }, [title, targetReps]);
+
   const handleRegisterTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!isFormValid) return;
     
     const newTask: Task = {
       id: Math.random().toString(36).substr(2, 9),
@@ -491,8 +495,12 @@ const App: React.FC = () => {
                   <span className="flex items-center gap-2"><span className="w-2 h-2 bg-emerald-500"></span> Protocolo Validado</span>
                   <span className="text-slate-400">{selectedDays.length > 0 ? `${selectedDays.length} Ciclos` : 'Individual'}</span>
                 </div>
-                <button type="submit" className="w-full bg-slate-950 text-white py-4 md:py-6 font-black text-[10px] md:text-[11px] uppercase tracking-[0.4em] md:tracking-[0.6em] hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xl">
-                  Sincronizar Protocolo
+                <button 
+                  type="submit" 
+                  disabled={!isFormValid}
+                  className="w-full bg-slate-950 text-white py-4 md:py-6 font-black text-[10px] md:text-[11px] uppercase tracking-[0.4em] md:tracking-[0.6em] hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-slate-950 disabled:active:scale-100"
+                >
+                  CADASTRAR
                 </button>
               </div>
             </form>
