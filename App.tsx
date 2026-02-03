@@ -212,8 +212,8 @@ const App: React.FC = () => {
     <div className={`min-h-screen flex flex-col md:flex-row bg-white dark:bg-slate-950 text-slate-950 dark:text-white font-roboto transition-colors duration-300`}>
       <aside className="w-full md:w-64 bg-slate-950 p-6 md:p-8 flex flex-col shrink-0 border-r border-slate-900 z-10">
         <div className="flex items-center gap-3 mb-8 md:mb-16">
-          <div className="w-6 h-6 bg-white flex items-center justify-center text-slate-950 font-bold text-xs">Z</div>
-          <h1 className="text-sm font-roboto font-bold tracking-[0.2em] text-white uppercase">ZenFlow</h1>
+          <div className="w-6 h-6 bg-white flex items-center justify-center text-slate-950 font-black text-xs">H</div>
+          <h1 className="text-sm font-roboto font-bold tracking-[0.2em] text-white uppercase">HOME</h1>
         </div>
 
         <nav className="flex flex-row md:flex-col gap-1 md:gap-2 flex-1 md:overflow-visible overflow-x-auto scrollbar-hide">
@@ -382,7 +382,7 @@ const App: React.FC = () => {
         </div>
 
         <footer className="p-6 md:p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors">
-          <p className="text-[8px] font-bold text-slate-200 dark:text-slate-800 uppercase tracking-[0.2em]">ZenFlow // Protocol v2.5</p>
+          <p className="text-[8px] font-bold text-slate-200 dark:text-slate-800 uppercase tracking-[0.2em]">HOME // Protocol v2.5</p>
         </footer>
       </main>
 
