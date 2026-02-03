@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, Priority, TaskStatus, TaskHistory, TaskType } from './types';
 import { Icons, CATEGORIES, DAYS_OF_WEEK, TASK_COLORS } from './constants';
+import { supabase } from './supabaseClient';
 
 type Tab = 'tasks';
 type SubTab = 'today' | 'registry';
@@ -14,8 +15,28 @@ const formatLocalDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+// Mapeamento DB -> UI
+const mapTaskFromDB = (db: any): Task => ({
+  id: db.id,
+  title: db.title,
+  description: db.description || '',
+  priority: db.priority as Priority,
+  status: db.status as TaskStatus,
+  category: db.category || '',
+  dueDate: db.due_date,
+  days: db.days,
+  createdAt: db.created_at,
+  icon: db.icon,
+  iconColor: db.icon_color,
+  targetReps: db.target_reps,
+  currentReps: db.current_reps,
+  type: db.type as TaskType,
+  history: db.history || {}
+});
+
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
   const [subTab, setSubTab] = useState<SubTab>('today');
   const [theme, setTheme] = useState<Theme>(() => {
@@ -29,10 +50,8 @@ const App: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
-  // Estado para Menu de Contexto (Botão Direito)
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, task: Task } | null>(null);
 
-  // Estados para o formulário de cadastro/edição
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState(formatLocalDate(new Date()));
@@ -42,23 +61,28 @@ const App: React.FC = () => {
   const [selectedIconColor, setSelectedIconColor] = useState(TASK_COLORS[0]);
   const [taskType, setTaskType] = useState<TaskType>(TaskType.DAILY);
 
-  // Estado para cadastro rápido na guia HOJE
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
-
-  // Estado para navegação de data na guia HOJE
   const [selectedViewDate, setSelectedViewDate] = useState(new Date());
-
-  // Estados do Calendário Customizado
   const [viewDate, setViewDate] = useState(new Date());
 
-  useEffect(() => {
-    const savedTasks = localStorage.getItem('zenflow_tasks');
-    if (savedTasks) setTasks(JSON.parse(savedTasks));
-  }, []);
+  const fetchTasks = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar tarefas:', error);
+    } else if (data) {
+      setTasks(data.map(mapTaskFromDB));
+    }
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    localStorage.setItem('zenflow_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    fetchTasks();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('zenflow_theme', theme);
@@ -69,7 +93,6 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  // Fechar menu de contexto ao clicar fora
   useEffect(() => {
     const handleGlobalClick = () => setContextMenu(null);
     window.addEventListener('click', handleGlobalClick);
@@ -80,16 +103,44 @@ const App: React.FC = () => {
   const viewDateStr = useMemo(() => formatLocalDate(selectedViewDate), [selectedViewDate]);
   const viewDayName = useMemo(() => DAYS_OF_WEEK[selectedViewDate.getDay()], [selectedViewDate]);
 
+  const calendarDays = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const days: (Date | null)[] = [];
+    
+    for (let i = 0; i < firstDayOfMonth.getDay(); i++) {
+      days.push(null);
+    }
+    
+    for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
+      days.push(new Date(year, month, d));
+    }
+    
+    return days;
+  }, [viewDate]);
+
   const filteredTasks = useMemo(() => {
     if (subTab === 'today') {
       return tasks.filter(t => {
         const dayState = (t.history && t.history[viewDateStr]) || null;
+        
+        // Regra para TAREFA (One-off/Flutuante)
         if (t.type === TaskType.TASK) {
           if (dayState && dayState.status === TaskStatus.COMPLETED) return true;
           return t.status === TaskStatus.TODO;
         }
+
+        // Regra para HÁBITO e COTIDIANO
+        // 1. Deve estar dentro do cronograma (viewDateStr >= t.dueDate)
+        const isOnOrAfterStartDate = viewDateStr >= t.dueDate;
+        if (!isOnOrAfterStartDate) return false;
+
+        // 2. Deve coincidir com a data específica ou com o dia da semana da rotina
         const isTargetDate = t.dueDate === viewDateStr;
         const isTargetDay = t.days && t.days.includes(viewDayName);
+        
         return isTargetDate || isTargetDay;
       });
     }
@@ -116,29 +167,33 @@ const App: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleQuickAdd = (e: React.FormEvent) => {
+  const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickTaskTitle.trim()) return;
 
-    const newTask: Task = {
-      id: Math.random().toString(36).substr(2, 9),
+    const newTaskData = {
       title: quickTaskTitle,
       description: '',
       priority: Priority.MEDIUM, 
       status: TaskStatus.TODO,
       category: CATEGORIES[0].name, 
-      dueDate: viewDateStr,
-      createdAt: new Date().toISOString(),
+      due_date: viewDateStr,
       icon: 'List',
-      iconColor: '#06b6d4', 
-      targetReps: 1,
-      currentReps: 0,
+      icon_color: '#06b6d4', 
+      target_reps: 1,
+      current_reps: 0,
       type: TaskType.TASK,
       history: {}
     };
 
-    setTasks(prev => [newTask, ...prev]);
-    setQuickTaskTitle('');
+    const { data, error } = await supabase.from('tasks').insert([newTaskData]).select();
+    
+    if (error) {
+      console.error('Erro ao adicionar rápida:', error);
+    } else if (data) {
+      setTasks(prev => [mapTaskFromDB(data[0]), ...prev]);
+      setQuickTaskTitle('');
+    }
   };
 
   const handleOpenEditTask = (task: Task) => {
@@ -153,40 +208,56 @@ const App: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmitTask = (e: React.FormEvent) => {
+  const handleSubmitTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
     
     if (editingTaskId) {
-      setTasks(prev => prev.map(t => t.id === editingTaskId ? {
-        ...t,
+      const updatedData = {
         title,
-        dueDate: t.type === TaskType.TASK ? t.dueDate : dueDate,
-        days: t.type === TaskType.TASK ? undefined : (selectedDays.length > 0 ? selectedDays : undefined),
+        due_date: dueDate,
+        days: taskType === TaskType.TASK ? null : (selectedDays.length > 0 ? selectedDays : null),
         icon: selectedIcon,
-        iconColor: selectedIconColor,
-        targetReps: t.type === TaskType.TASK ? 1 : Math.max(1, targetReps),
+        icon_color: selectedIconColor,
+        target_reps: taskType === TaskType.TASK ? 1 : Math.max(1, targetReps),
         type: taskType
-      } : t));
+      };
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .update(updatedData)
+        .eq('id', editingTaskId)
+        .select();
+
+      if (error) {
+        console.error('Erro ao atualizar:', error);
+      } else if (data) {
+        setTasks(prev => prev.map(t => t.id === editingTaskId ? mapTaskFromDB(data[0]) : t));
+      }
     } else {
-      const newTask: Task = {
-        id: Math.random().toString(36).substr(2, 9),
+      const newTaskData = {
         title: title,
         description: '',
         priority: Priority.MEDIUM, 
         status: TaskStatus.TODO,
         category: CATEGORIES[0].name, 
-        dueDate,
-        days: taskType === TaskType.TASK ? undefined : (selectedDays.length > 0 ? selectedDays : undefined),
-        createdAt: new Date().toISOString(),
+        due_date: dueDate,
+        days: taskType === TaskType.TASK ? null : (selectedDays.length > 0 ? selectedDays : null),
         icon: selectedIcon,
-        iconColor: selectedIconColor,
-        targetReps: taskType === TaskType.TASK ? 1 : Math.max(1, targetReps),
-        currentReps: 0,
+        icon_color: selectedIconColor,
+        target_reps: taskType === TaskType.TASK ? 1 : Math.max(1, targetReps),
+        current_reps: 0,
         type: taskType,
         history: {}
       };
-      setTasks(prev => [newTask, ...prev]);
+
+      const { data, error } = await supabase.from('tasks').insert([newTaskData]).select();
+      
+      if (error) {
+        console.error('Erro ao criar:', error);
+      } else if (data) {
+        setTasks(prev => [mapTaskFromDB(data[0]), ...prev]);
+      }
     }
 
     setIsModalOpen(false);
@@ -199,68 +270,65 @@ const App: React.FC = () => {
     setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   };
 
-  const toggleTaskStatus = (id: string) => {
+  const toggleTaskStatus = async (id: string) => {
     if (subTab !== 'today') return;
     
-    setTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        const history = t.history || {};
-        const currentDayState: TaskHistory = history[viewDateStr] || { currentReps: 0, status: TaskStatus.TODO };
-        
-        let nextReps = currentDayState.currentReps;
-        let nextStatus = currentDayState.status;
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
 
-        if (t.targetReps > 1) {
-          nextReps = currentDayState.currentReps + 1;
-          if (nextReps >= t.targetReps) {
-            nextReps = t.targetReps;
-            nextStatus = TaskStatus.COMPLETED;
-          } else {
-            nextStatus = TaskStatus.TODO;
-          }
-        } else {
-          if (currentDayState.status === TaskStatus.COMPLETED) {
-            nextStatus = TaskStatus.TODO;
-            nextReps = 0;
-          } else {
-            nextStatus = TaskStatus.COMPLETED;
-            nextReps = 1;
-          }
-        }
+    const history = task.history || {};
+    const currentDayState: TaskHistory = history[viewDateStr] || { currentReps: 0, status: TaskStatus.TODO };
+    
+    let nextReps = currentDayState.currentReps;
+    let nextStatus = currentDayState.status;
 
-        const globalStatus = (t.type === TaskType.TASK) ? nextStatus : t.status;
-
-        return {
-          ...t,
-          status: globalStatus,
-          history: {
-            ...history,
-            [viewDateStr]: { currentReps: nextReps, status: nextStatus }
-          }
-        };
+    if (task.targetReps > 1) {
+      nextReps = currentDayState.currentReps + 1;
+      if (nextReps >= task.targetReps) {
+        nextReps = task.targetReps;
+        nextStatus = TaskStatus.COMPLETED;
+      } else {
+        nextStatus = TaskStatus.TODO;
       }
-      return t;
-    }));
-  };
+    } else {
+      if (currentDayState.status === TaskStatus.COMPLETED) {
+        nextStatus = TaskStatus.TODO;
+        nextReps = 0;
+      } else {
+        nextStatus = TaskStatus.COMPLETED;
+        nextReps = 1;
+      }
+    }
 
-  const confirmDeleteTask = () => {
-    if (taskToDelete) {
-      setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
-      setTaskToDelete(null);
-      setIsDeleteModalOpen(false);
+    const globalStatus = (task.type === TaskType.TASK) ? nextStatus : task.status;
+    const newHistory = { ...history, [viewDateStr]: { currentReps: nextReps, status: nextStatus } };
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .update({ status: globalStatus, history: newHistory })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Erro ao alternar status:', error);
+    } else if (data) {
+      setTasks(prev => prev.map(t => t.id === id ? mapTaskFromDB(data[0]) : t));
     }
   };
 
-  const calendarDays = useMemo(() => {
-    const year = viewDate.getFullYear();
-    const month = viewDate.getMonth();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const days = [];
-    for (let i = 0; i < firstDayOfMonth; i++) { days.push(null); }
-    for (let i = 1; i <= daysInMonth; i++) { days.push(new Date(year, month, i)); }
-    return days;
-  }, [viewDate]);
+  const confirmDeleteTask = async () => {
+    if (taskToDelete) {
+      const { error } = await supabase.from('tasks').delete().eq('id', taskToDelete.id);
+      
+      if (error) {
+        console.error('Erro ao deletar:', error);
+      } else {
+        setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
+        setTaskToDelete(null);
+        setIsDeleteModalOpen(false);
+      }
+    }
+  };
 
   const changeMonth = (offset: number) => {
     setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
@@ -307,8 +375,6 @@ const App: React.FC = () => {
     };
 
     const handleContextMenu = (e: React.MouseEvent) => {
-      // Menu de contexto habilitado para TAREFA na guia HOJE 
-      // OU para QUALQUER registro na guia CADASTRO
       if (task.type === TaskType.TASK || subTab === 'registry') {
         e.preventDefault();
         setContextMenu({ x: e.clientX, y: e.clientY, task });
@@ -402,7 +468,11 @@ const App: React.FC = () => {
           </div>
 
           <section className="animate-fade-in flex-1 flex flex-col">
-            {subTab === 'today' ? (
+            {isLoading ? (
+               <div className="flex-1 flex items-center justify-center">
+                 <div className="w-8 h-8 border-2 border-slate-950 dark:border-white border-t-transparent animate-spin"></div>
+               </div>
+            ) : subTab === 'today' ? (
               <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
                 <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10 gap-4">
                   <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -545,7 +615,19 @@ const App: React.FC = () => {
         </div>
       )}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 animate-fade-in bg-slate-950/40 dark:bg-black/80 backdrop-blur-[4px]"><div className="absolute inset-0" onClick={() => setIsDeleteModalOpen(false)}></div><div className="relative w-full max-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-8 space-y-8 animate-slide-up"><h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600">CANCELAR REGISTRO?</h3><button onClick={confirmDeleteTask} className="w-full bg-red-600 text-white py-4 font-black text-[10px] uppercase tracking-[0.4em]">SIM, CANCELAR</button><button onClick={() => setIsDeleteModalOpen(false)} className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-950 dark:text-white py-4 font-black text-[10px] uppercase tracking-[0.4em]">NÃO, MANTER</button></div></div>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 animate-fade-in bg-slate-950/40 dark:bg-black/80 backdrop-blur-[4px]">
+          <div className="absolute inset-0" onClick={() => setIsDeleteModalOpen(false)}></div>
+          <div className="relative w-full max-w-[400px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 md:p-8 animate-slide-up">
+            <div className="mb-6">
+              <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600 leading-tight">Confirmar Exclusão?</h3>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Esta ação não poderá ser desfeita no sistema.</p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button onClick={confirmDeleteTask} className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-[0.3em] transition-all active:scale-[0.98]">Sim, Cancelar Registro</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="w-full h-12 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-950 dark:text-white font-black text-[10px] uppercase tracking-[0.3em] hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-[0.98]">Não, Manter Protocolo</button>
+            </div>
+          </div>
+        </div>
       )}
       <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
