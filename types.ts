@@ -11,6 +11,11 @@ export enum TaskStatus {
   COMPLETED = 'Concluída'
 }
 
+export enum TaskType {
+  HABIT = 'HABITO',
+  DAILY = 'COTIDIANO'
+}
+
 export interface TaskHistory {
   currentReps: number;
   status: TaskStatus;
@@ -30,6 +35,7 @@ export interface Task {
   iconColor: string;
   targetReps: number;
   currentReps: number;
+  type: TaskType;
   history?: Record<string, TaskHistory>; // Mapeamento de data (YYYY-MM-DD) para estado
 }
 

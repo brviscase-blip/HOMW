@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Task, Priority, TaskStatus, TaskHistory } from './types';
+import { Task, Priority, TaskStatus, TaskHistory, TaskType } from './types';
 import { Icons, CATEGORIES, DAYS_OF_WEEK, TASK_COLORS } from './constants';
 
 type Tab = 'tasks';
@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [targetReps, setTargetReps] = useState<number>(1);
   const [selectedIcon, setSelectedIcon] = useState('List');
   const [selectedIconColor, setSelectedIconColor] = useState(TASK_COLORS[0]);
+  const [taskType, setTaskType] = useState<TaskType>(TaskType.DAILY);
 
   // Estado para navegação de data na guia HOJE
   const [selectedViewDate, setSelectedViewDate] = useState(new Date());
@@ -98,6 +99,7 @@ const App: React.FC = () => {
     setTargetReps(1);
     setSelectedIcon('List');
     setSelectedIconColor(TASK_COLORS[0]);
+    setTaskType(TaskType.DAILY);
     setIsModalOpen(true);
   };
 
@@ -109,6 +111,7 @@ const App: React.FC = () => {
     setTargetReps(task.targetReps);
     setSelectedIcon(task.icon);
     setSelectedIconColor(task.iconColor);
+    setTaskType(task.type || TaskType.DAILY);
     setIsModalOpen(true);
   };
 
@@ -125,6 +128,7 @@ const App: React.FC = () => {
         icon: selectedIcon,
         iconColor: selectedIconColor,
         targetReps: Math.max(1, targetReps),
+        type: taskType
       } : t));
     } else {
       const newTask: Task = {
@@ -141,6 +145,7 @@ const App: React.FC = () => {
         iconColor: selectedIconColor,
         targetReps: Math.max(1, targetReps),
         currentReps: 0,
+        type: taskType,
         history: {}
       };
       setTasks(prev => [newTask, ...prev]);
@@ -305,6 +310,9 @@ const App: React.FC = () => {
                     OK // OPERAÇÃO CONCLUÍDA
                  </span>
                )}
+               <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${task.type === TaskType.HABIT ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'}`}>
+                 {task.type}
+               </span>
                {task.targetReps > 1 && (
                  <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>
                    [{dayState.currentReps}/{task.targetReps}]
@@ -375,11 +383,17 @@ const App: React.FC = () => {
             <div className="space-y-8">
                <div className="border-l border-slate-800 pl-4">
                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Pendentes</p>
-                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.length - tasks.filter(t => t.status === TaskStatus.COMPLETED).length}</p>
+                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.length - tasks.filter(t => {
+                   const dayState = (t.history && t.history[viewDateStr]) || { status: TaskStatus.TODO };
+                   return dayState.status === TaskStatus.COMPLETED;
+                 }).length}</p>
                </div>
                <div className="border-l border-slate-800 pl-4">
                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Concluídas</p>
-                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.filter(t => t.status === TaskStatus.COMPLETED).length}</p>
+                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.filter(t => {
+                   const dayState = (t.history && t.history[viewDateStr]) || { status: TaskStatus.TODO };
+                   return dayState.status === TaskStatus.COMPLETED;
+                 }).length}</p>
                </div>
             </div>
           </div>
@@ -558,7 +572,27 @@ const App: React.FC = () => {
               </div>
               
               <div className="space-y-4 md:space-y-5">
-                <SectionLabel number="02" text="Ciclo e Volume Operacional" />
+                <SectionLabel number="02" text="Tipo de Registro" />
+                <div className="flex gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setTaskType(TaskType.HABIT)} 
+                    className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.HABIT ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}
+                  >
+                    HÁBITO
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setTaskType(TaskType.DAILY)} 
+                    className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.DAILY ? 'bg-amber-600 border-amber-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}
+                  >
+                    COTIDIANO
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4 md:space-y-5">
+                <SectionLabel number="03" text="Ciclo e Volume Operacional" />
                 <div className="bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 md:p-6 space-y-6">
                   <div className="flex gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
                     {DAYS_OF_WEEK.map(day => (<button key={day} type="button" onClick={() => toggleDay(day)} className={`flex-1 min-w-[36px] py-3 text-[9px] font-bold border transition-all ${selectedDays.includes(day) ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600'}`}>{day[0]}</button>))}
@@ -571,7 +605,7 @@ const App: React.FC = () => {
               </div>
 
               <div className="space-y-4 md:space-y-5 pb-6">
-                <SectionLabel number="03" text="Início da Operação" />
+                <SectionLabel number="04" text="Início da Operação" />
                 <div className="space-y-3">
                   <button 
                     type="button"
