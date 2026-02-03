@@ -345,7 +345,7 @@ const App: React.FC = () => {
                   >
                     <TaskIcon 
                       name={selectedIcon} 
-                      color={isStylePickerOpen ? '#ffffff' : selectedIconColor} 
+                      color={selectedIconColor} 
                       className="scale-125"
                     />
                   </button>
