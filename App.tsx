@@ -307,7 +307,9 @@ const App: React.FC = () => {
     };
 
     const handleContextMenu = (e: React.MouseEvent) => {
-      if (task.type === TaskType.TASK) {
+      // Menu de contexto habilitado para TAREFA na guia HOJE 
+      // OU para QUALQUER registro na guia CADASTRO
+      if (task.type === TaskType.TASK || subTab === 'registry') {
         e.preventDefault();
         setContextMenu({ x: e.clientX, y: e.clientY, task });
       }
@@ -350,12 +352,6 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-        {subTab === 'registry' && (
-          <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => handleOpenEditTask(task)} className="p-2 text-slate-300 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white transition-all"><Icons.Edit /></button>
-            <button onClick={() => { setTaskToDelete(task); setIsDeleteModalOpen(true); }} className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-600 transition-all"><Icons.Trash /></button>
-          </div>
-        )}
       </div>
     );
   };
