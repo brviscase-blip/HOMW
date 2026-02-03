@@ -31,6 +31,9 @@ const App: React.FC = () => {
   const [selectedIcon, setSelectedIcon] = useState('List');
   const [selectedIconColor, setSelectedIconColor] = useState(TASK_COLORS[0]);
 
+  // Estado para navegação de data na guia HOJE
+  const [selectedViewDate, setSelectedViewDate] = useState(new Date());
+
   // Estados do Calendário Customizado
   const [viewDate, setViewDate] = useState(new Date());
 
@@ -55,19 +58,21 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const todayDayName = useMemo(() => DAYS_OF_WEEK[new Date().getDay()], []);
+  const realTodayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  
+  const viewDateStr = useMemo(() => selectedViewDate.toISOString().split('T')[0], [selectedViewDate]);
+  const viewDayName = useMemo(() => DAYS_OF_WEEK[selectedViewDate.getDay()], [selectedViewDate]);
 
   const filteredTasks = useMemo(() => {
     if (subTab === 'today') {
       return tasks.filter(t => {
-        const isTargetDate = t.dueDate === todayStr;
-        const isTargetDay = t.days && t.days.includes(todayDayName);
+        const isTargetDate = t.dueDate === viewDateStr;
+        const isTargetDay = t.days && t.days.includes(viewDayName);
         return isTargetDate || isTargetDay;
       });
     }
     return tasks;
-  }, [tasks, subTab, todayStr, todayDayName]);
+  }, [tasks, subTab, viewDateStr, viewDayName]);
 
   const isFormValid = useMemo(() => {
     return title.trim() !== '' && targetReps > 0;
@@ -196,6 +201,16 @@ const App: React.FC = () => {
     if (selectedDays.length === 0) return true;
     const dayName = DAYS_OF_WEEK[date.getDay()];
     return selectedDays.includes(dayName);
+  };
+
+  const navigateDay = (offset: number) => {
+    const newDate = new Date(selectedViewDate);
+    newDate.setDate(newDate.getDate() + offset);
+    setSelectedViewDate(newDate);
+  };
+
+  const resetToToday = () => {
+    setSelectedViewDate(new Date());
   };
 
   const TaskIcon = ({ name, color, className }: { name: string, color: string, className?: string }) => {
@@ -376,10 +391,35 @@ const App: React.FC = () => {
           <section className="animate-fade-in flex-1 flex flex-col">
             {subTab === 'today' ? (
               <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
-                <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10">
-                  <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2">
-                    <span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> Operação: Hoje
-                  </h3>
+                <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10 gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => navigateDay(-1)}
+                        className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]"
+                      >
+                        ◄
+                      </button>
+                      <button 
+                        onClick={resetToToday}
+                        className={`px-3 h-9 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 transition-all font-black text-[9px] tracking-widest uppercase ${viewDateStr === realTodayStr ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-white dark:bg-slate-950 text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white'}`}
+                      >
+                        Hoje
+                      </button>
+                      <button 
+                        onClick={() => navigateDay(1)}
+                        className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]"
+                      >
+                        ►
+                      </button>
+                    </div>
+
+                    <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2 whitespace-nowrap">
+                      <span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> 
+                      Operação: {viewDateStr === realTodayStr ? 'HOJE' : selectedViewDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </h3>
+                  </div>
+
                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
                     {filteredTasks.length} Registros
                   </span>
@@ -391,7 +431,7 @@ const App: React.FC = () => {
                       <div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4">
                         <Icons.Check />
                       </div>
-                      <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro agendado.</p>
+                      <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro para este ciclo.</p>
                     </div>
                   ) : (
                     filteredTasks.map(task => <TaskCard key={task.id} task={task} />)
