@@ -4,13 +4,13 @@ import { Task, Priority, TaskStatus } from './types';
 import { Icons, CATEGORIES, DAYS_OF_WEEK, TASK_COLORS } from './constants';
 
 type Tab = 'tasks';
-type SubTab = 'registry' | 'today';
+type SubTab = 'today' | 'registry';
 type Theme = 'light' | 'dark';
 
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
-  const [subTab, setSubTab] = useState<SubTab>('registry');
+  const [subTab, setSubTab] = useState<SubTab>('today');
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('zenflow_theme');
     return (saved as Theme) || 'light';
@@ -143,6 +143,8 @@ const App: React.FC = () => {
   };
 
   const toggleTaskStatus = (id: string) => {
+    if (subTab !== 'today') return; // Bloqueio de ação se não estiver na guia Hoje
+    
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         if (t.targetReps > 1) {
@@ -207,7 +209,6 @@ const App: React.FC = () => {
     </label>
   );
 
-  // Fixed 'key' prop error by using React.FC to properly handle intrinsic attributes in lists
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => (
     <div 
       className="group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all border-l-4 border-transparent hover:border-l-slate-950 dark:hover:border-l-white"
@@ -215,7 +216,12 @@ const App: React.FC = () => {
     >
       <button 
         onClick={() => toggleTaskStatus(task.id)}
-        className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${task.status === TaskStatus.COMPLETED ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-950 dark:hover:border-white'}`}
+        disabled={subTab !== 'today'}
+        className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative 
+          ${task.status === TaskStatus.COMPLETED 
+            ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' 
+            : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}
+          ${subTab === 'today' ? 'hover:border-slate-950 dark:hover:border-white cursor-pointer' : 'cursor-default opacity-80'}`}
       >
         {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED ? (
            <div className="flex flex-col items-center">
@@ -224,9 +230,9 @@ const App: React.FC = () => {
              <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
            </div>
         ) : (
-          task.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
+          task.status === TaskStatus.COMPLETED ? <Icons.Check /> : (subTab === 'today' ? <Icons.Plus /> : <Icons.List />)
         )}
-        {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && (
+        {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && subTab === 'today' && (
           <div 
             className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
             style={{ clipPath: `inset(${100 - (task.currentReps / task.targetReps) * 100}% 0 0 0)` }}
@@ -281,16 +287,26 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen flex flex-col md:flex-row bg-white dark:bg-slate-950 text-slate-950 dark:text-white font-roboto transition-colors duration-300`}>
-      <aside className="w-full md:w-64 bg-slate-950 p-6 md:p-8 flex flex-col shrink-0 border-r border-slate-900 z-10">
-        <div className="flex items-center gap-3 mb-8 md:mb-16">
-          <div className="w-6 h-6 bg-white flex items-center justify-center text-slate-950 font-black text-xs">H</div>
-          <h1 className="text-sm font-roboto font-bold tracking-[0.2em] text-white uppercase">HOME</h1>
+      {/* Aside Otimizado para Mobile */}
+      <aside className="w-full md:w-64 bg-slate-950 p-3 md:p-8 flex flex-col shrink-0 border-r border-slate-900 z-10">
+        <div className="flex items-center justify-between md:flex-col md:items-start md:gap-3 mb-3 md:mb-16">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-5 h-5 md:w-6 md:h-6 bg-white flex items-center justify-center text-slate-950 font-black text-[10px] md:text-xs">H</div>
+            <h1 className="text-[10px] md:text-sm font-roboto font-bold tracking-[0.2em] text-white uppercase">HOME</h1>
+          </div>
+          
+          <button 
+            onClick={toggleTheme}
+            className="md:hidden flex items-center justify-center w-8 h-8 text-slate-400"
+          >
+            {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
+          </button>
         </div>
 
         <nav className="flex flex-row md:flex-col gap-1 md:gap-2 flex-1 md:overflow-visible overflow-x-auto scrollbar-hide">
           <button 
             onClick={() => setActiveTab('tasks')}
-            className={`flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap bg-slate-900 text-white md:border-l-4 border-b-4 md:border-b-0 border-white`}
+            className={`flex items-center gap-3 px-3 md:px-5 py-2 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap bg-slate-900 text-white md:border-l-4 border-b-2 md:border-b-0 border-white`}
           >
             <Icons.List />
             TAREFAS
@@ -311,7 +327,7 @@ const App: React.FC = () => {
           </div>
         </nav>
 
-        <div className="mt-auto pt-8 border-t border-slate-900">
+        <div className="hidden md:block mt-auto pt-8 border-t border-slate-900">
           <button 
             onClick={toggleTheme}
             className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2"
@@ -323,50 +339,75 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-y-auto bg-slate-50/20 dark:bg-slate-900/50">
-        <header className="p-6 md:p-8 lg:p-10 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col md:flex-row items-start md:items-end justify-between sticky top-0 z-20 gap-4 md:gap-0 transition-colors">
+        {/* Header Principal Otimizado para Mobile */}
+        <header className="px-4 py-4 md:p-8 lg:p-10 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col md:flex-row items-start md:items-end justify-between sticky top-0 z-20 gap-2 md:gap-0 transition-colors">
           <div className="animate-slide-down">
-            <h2 className="text-2xl md:text-3xl font-roboto font-bold text-slate-950 dark:text-white tracking-tight uppercase leading-none">
+            <h2 className="text-lg md:text-3xl font-roboto font-bold text-slate-950 dark:text-white tracking-tight uppercase leading-none">
               Gestão de Tarefas
             </h2>
-            <p className="text-slate-400 mt-2 font-bold text-[9px] md:text-[10px] uppercase tracking-[0.3em]">
-              BASE DE DADOS LINEAR // {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            <p className="text-slate-400 mt-1 md:mt-2 font-bold text-[8px] md:text-[10px] uppercase tracking-[0.3em]">
+              BASE DE DADOS // {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
             </p>
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col p-4 md:p-6 lg:p-10 gap-6">
-          {/* Sub-Navegação */}
+        <div className="flex-1 flex flex-col p-3 md:p-6 lg:p-10 gap-4 md:gap-6">
+          {/* Sub-Navegação Otimizada */}
           <div className="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
             <button 
-              onClick={() => setSubTab('registry')}
-              className={`px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'registry' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-            >
-              Cadastro
-            </button>
-            <button 
               onClick={() => setSubTab('today')}
-              className={`px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'today' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'today' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
             >
               Hoje
+            </button>
+            <button 
+              onClick={() => setSubTab('registry')}
+              className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'registry' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+            >
+              Cadastro
             </button>
           </div>
 
           <section className="animate-fade-in flex-1 flex flex-col">
-            {subTab === 'registry' ? (
-              <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 min-h-[500px] md:min-h-[600px] shadow-sm flex flex-col overflow-hidden animate-fade-in">
-                <div className="p-4 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 gap-4">
+            {subTab === 'today' ? (
+              <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
+                <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10">
+                  <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2">
+                    <span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> Operação: Hoje
+                  </h3>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                    {filteredTasks.length} Registros
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
+                  {filteredTasks.length === 0 ? (
+                    <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
+                      <div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4">
+                        <Icons.Check />
+                      </div>
+                      <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro agendado.</p>
+                    </div>
+                  ) : (
+                    filteredTasks.map(task => <TaskCard key={task.id} task={task} />)
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
+                <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 gap-3">
                   <div className="flex flex-col">
                     <h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">
-                      Histórico Completo de Registros
+                      Histórico Completo
                     </h3>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      {tasks.length} Protocolos Cadastrados
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                      {tasks.length} Protocolos
                     </span>
                   </div>
                   
                   <button 
                     onClick={handleOpenNewTask}
-                    className="flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-6 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"
+                    className="flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-4 py-2.5 md:px-6 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"
                   >
                     <Icons.Plus /> Novo Registro
                   </button>
@@ -374,38 +415,14 @@ const App: React.FC = () => {
 
                 <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
                   {tasks.length === 0 ? (
-                    <div className="p-16 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
-                      <div className="w-12 h-12 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-6">
+                    <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
+                      <div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4">
                         <Icons.List />
                       </div>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado no banco de dados.</p>
+                      <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado.</p>
                     </div>
                   ) : (
                     tasks.map(task => <TaskCard key={task.id} task={task} />)
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 min-h-[500px] md:min-h-[600px] shadow-sm flex flex-col overflow-hidden animate-fade-in">
-                <div className="p-4 md:p-6 border-b border-slate-300 dark:border-slate-800 flex items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10">
-                  <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-emerald-500"></span> Operação: Hoje
-                  </h3>
-                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
-                    {filteredTasks.length} Registros Prioritários
-                  </span>
-                </div>
-
-                <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
-                  {filteredTasks.length === 0 ? (
-                    <div className="p-16 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
-                      <div className="w-12 h-12 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-6">
-                        <Icons.Check />
-                      </div>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro agendado para este período.</p>
-                    </div>
-                  ) : (
-                    filteredTasks.map(task => <TaskCard key={task.id} task={task} />)
                   )}
                 </div>
               </div>
@@ -413,8 +430,8 @@ const App: React.FC = () => {
           </section>
         </div>
 
-        <footer className="p-6 md:p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors">
-          <p className="text-[8px] font-bold text-slate-200 dark:text-slate-800 uppercase tracking-[0.2em]">HOME // Protocol v2.5</p>
+        <footer className="p-4 md:p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors">
+          <p className="text-[7px] md:text-[8px] font-bold text-slate-200 dark:text-slate-800 uppercase tracking-[0.2em]">HOME // Protocol v2.5</p>
         </footer>
       </main>
 
