@@ -249,18 +249,14 @@ const App: React.FC = () => {
           </div>
         </nav>
 
-        <div className="mt-auto pt-8 border-t border-slate-900 space-y-6">
+        <div className="mt-auto pt-8 border-t border-slate-900">
           <button 
             onClick={toggleTheme}
-            className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all"
+            className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2"
           >
             {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
             {theme === 'light' ? 'DARK MODE' : 'LIGHT MODE'}
           </button>
-          <div className="hidden md:flex items-center gap-2">
-            <div className="w-2 h-2 bg-emerald-500"></div>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Sistema Operacional</p>
-          </div>
         </div>
       </aside>
 
