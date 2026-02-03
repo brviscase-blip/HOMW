@@ -10,10 +10,10 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('today');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isStylePickerOpen, setIsStylePickerOpen] = useState(false);
 
   // Estados para o formulário de cadastro
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState(CATEGORIES[0].name);
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [targetReps, setTargetReps] = useState(1);
@@ -57,11 +57,11 @@ const App: React.FC = () => {
     
     const newTask: Task = {
       id: Math.random().toString(36).substr(2, 9),
-      title: title, // Removido .toUpperCase() para respeitar maiúsculas/minúsculas
+      title: title,
       description: '',
       priority: Priority.MEDIUM, 
       status: TaskStatus.TODO,
-      category, 
+      category: CATEGORIES[0].name, 
       dueDate,
       days: selectedDays.length > 0 ? selectedDays : undefined,
       createdAt: new Date().toISOString(),
@@ -80,6 +80,7 @@ const App: React.FC = () => {
     setSelectedIconColor(TASK_COLORS[0]);
     setIsModalOpen(false);
     setIsCalendarOpen(false);
+    setIsStylePickerOpen(false);
   };
 
   const toggleDay = (day: string) => {
@@ -303,7 +304,7 @@ const App: React.FC = () => {
         </footer>
       </main>
 
-      {/* Modal Responsivo e Verticalizado */}
+      {/* Modal Responsivo e Unificado */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-6 animate-fade-in overflow-y-auto bg-slate-950/25 backdrop-blur-[6px]">
           <div className="absolute inset-0" onClick={() => setIsModalOpen(false)}></div>
@@ -325,57 +326,73 @@ const App: React.FC = () => {
             
             <form onSubmit={handleRegisterTask} className="p-5 md:p-8 space-y-8 md:space-y-10 overflow-y-auto max-h-[85vh] scrollbar-hide">
               
-              {/* 1. Identificação da Atividade */}
+              {/* 1. Atividade e Estilo Unificados */}
               <div className="space-y-3 md:space-y-4">
-                <SectionLabel number="01" text="Identificação da Atividade" />
-                <input 
-                  autoFocus 
-                  value={title} 
-                  onChange={(e) => setTitle(e.target.value)} 
-                  required 
-                  placeholder="EX: Meditação, Estudo, Treino..." 
-                  className="w-full bg-slate-50 border border-slate-100 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-200" 
-                />
-              </div>
+                <SectionLabel number="01" text="Definição e Identidade" />
+                <div className="flex gap-2">
+                  <input 
+                    autoFocus 
+                    value={title} 
+                    onChange={(e) => setTitle(e.target.value)} 
+                    required 
+                    placeholder="EX: Meditação, Estudo, Treino..." 
+                    className="flex-1 bg-slate-50 border border-slate-100 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-200" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setIsStylePickerOpen(!isStylePickerOpen)}
+                    className={`w-14 md:w-16 flex items-center justify-center transition-all border shrink-0 ${isStylePickerOpen ? 'bg-slate-950 border-slate-950 shadow-inner' : 'bg-slate-50 border-slate-100 hover:border-slate-400 hover:bg-white'}`}
+                  >
+                    <TaskIcon 
+                      name={selectedIcon} 
+                      color={isStylePickerOpen ? '#ffffff' : selectedIconColor} 
+                      className="scale-125"
+                    />
+                  </button>
+                </div>
 
-              {/* 2. Estética e Identidade */}
-              <div className="space-y-4 md:space-y-5">
-                <SectionLabel number="02" text="Estética e Identidade" />
-                <div className="bg-slate-50 p-4 md:p-6 border border-slate-100 space-y-6 md:space-y-8">
-                  {/* Ícones Grid Adaptativo */}
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                    {Object.keys(Icons).filter(k => !['Plus', 'Trash', 'Check', 'List'].includes(k)).concat(['List']).map(iconName => (
-                      <button 
-                        key={iconName} 
-                        type="button" 
-                        onClick={() => setSelectedIcon(iconName)}
-                        className={`aspect-square flex items-center justify-center transition-all border ${selectedIcon === iconName ? 'bg-white border-slate-950 shadow-sm scale-105 z-10' : 'bg-slate-100/50 border-transparent hover:border-slate-300'}`}
-                      >
-                        <TaskIcon 
-                          name={iconName} 
-                          color={selectedIcon === iconName ? selectedIconColor : '#cbd5e1'} 
+                {/* Picker Expansível de Ícones e Cores */}
+                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isStylePickerOpen ? 'max-h-[500px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+                  <div className="bg-slate-50 p-4 md:p-6 border border-slate-100 space-y-6 md:space-y-8 animate-slide-down">
+                    <div className="flex items-center justify-between">
+                       <h5 className="text-[8px] font-black uppercase tracking-widest text-slate-400">Seletor de Identidade Visual</h5>
+                       <button type="button" onClick={() => setIsStylePickerOpen(false)} className="text-[8px] font-black uppercase text-slate-900">Fechar [×]</button>
+                    </div>
+                    {/* Ícones Grid Adaptativo */}
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                      {Object.keys(Icons).filter(k => !['Plus', 'Trash', 'Check', 'List'].includes(k)).concat(['List']).map(iconName => (
+                        <button 
+                          key={iconName} 
+                          type="button" 
+                          onClick={() => setSelectedIcon(iconName)}
+                          className={`aspect-square flex items-center justify-center transition-all border ${selectedIcon === iconName ? 'bg-white border-slate-950 shadow-sm scale-105 z-10' : 'bg-slate-100/50 border-transparent hover:border-slate-300'}`}
+                        >
+                          <TaskIcon 
+                            name={iconName} 
+                            color={selectedIcon === iconName ? selectedIconColor : '#cbd5e1'} 
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    {/* Paleta Cores Profissional */}
+                    <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide border-t border-slate-200/50 pt-5 md:pt-6">
+                      {TASK_COLORS.map(color => (
+                        <button 
+                          key={color} 
+                          type="button" 
+                          onClick={() => setSelectedIconColor(color)}
+                          style={{ backgroundColor: color }}
+                          className={`w-5 h-5 md:w-6 md:h-6 shrink-0 transition-all border-2 ${selectedIconColor === color ? 'border-slate-950 ring-2 ring-slate-100 scale-125' : 'border-white opacity-60 hover:opacity-100'}`}
                         />
-                      </button>
-                    ))}
-                  </div>
-                  {/* Paleta Cores Profissional */}
-                  <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide border-t border-slate-200/50 pt-5 md:pt-6">
-                    {TASK_COLORS.map(color => (
-                      <button 
-                        key={color} 
-                        type="button" 
-                        onClick={() => setSelectedIconColor(color)}
-                        style={{ backgroundColor: color }}
-                        className={`w-5 h-5 md:w-6 md:h-6 shrink-0 transition-all border-2 ${selectedIconColor === color ? 'border-slate-950 ring-2 ring-slate-100 scale-125' : 'border-white opacity-60 hover:opacity-100'}`}
-                      />
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* 3. Ciclo Semanal */}
+              {/* 2. Ciclo Semanal */}
               <div className="space-y-4 md:space-y-5">
-                <SectionLabel number="03" text="Ciclo e Volume" />
+                <SectionLabel number="02" text="Ciclo e Volume Operacional" />
                 <div className="bg-white border border-slate-100 p-4 md:p-6 space-y-6">
                   <div className="flex gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
                     {DAYS_OF_WEEK.map(day => (
@@ -405,9 +422,9 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* 4. Início da Atividade - Calendário Colapsável */}
+              {/* 3. Início da Atividade - Calendário Colapsável */}
               <div className="space-y-4 md:space-y-5 pb-6">
-                <SectionLabel number="04" text="Início da Operação" />
+                <SectionLabel number="03" text="Início da Operação" />
                 
                 <div className="space-y-3">
                   <button 
