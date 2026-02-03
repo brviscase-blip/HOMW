@@ -29,6 +29,9 @@ const App: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
+  // Estado para Menu de Contexto (Botão Direito)
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, task: Task } | null>(null);
+
   // Estados para o formulário de cadastro/edição
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -66,6 +69,13 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
+  // Fechar menu de contexto ao clicar fora
+  useEffect(() => {
+    const handleGlobalClick = () => setContextMenu(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
+
   const realTodayStr = useMemo(() => formatLocalDate(new Date()), []);
   const viewDateStr = useMemo(() => formatLocalDate(selectedViewDate), [selectedViewDate]);
   const viewDayName = useMemo(() => DAYS_OF_WEEK[selectedViewDate.getDay()], [selectedViewDate]);
@@ -73,16 +83,11 @@ const App: React.FC = () => {
   const filteredTasks = useMemo(() => {
     if (subTab === 'today') {
       return tasks.filter(t => {
-        // Lógica de flutuação para TAREFA:
-        // Se for TAREFA e estiver PENDENTE, aparece sempre no HOJE.
-        // Se for TAREFA e estiver CONCLUÍDA, aparece apenas no dia em que foi marcada no histórico.
         const dayState = (t.history && t.history[viewDateStr]) || null;
-        
         if (t.type === TaskType.TASK) {
           if (dayState && dayState.status === TaskStatus.COMPLETED) return true;
           return t.status === TaskStatus.TODO;
         }
-
         const isTargetDate = t.dueDate === viewDateStr;
         const isTargetDay = t.days && t.days.includes(viewDayName);
         return isTargetDate || isTargetDay;
@@ -125,7 +130,7 @@ const App: React.FC = () => {
       dueDate: viewDateStr,
       createdAt: new Date().toISOString(),
       icon: 'List',
-      iconColor: '#06b6d4', // Cyan padrão para tarefas
+      iconColor: '#06b6d4', 
       targetReps: 1,
       currentReps: 0,
       type: TaskType.TASK,
@@ -156,11 +161,11 @@ const App: React.FC = () => {
       setTasks(prev => prev.map(t => t.id === editingTaskId ? {
         ...t,
         title,
-        dueDate: taskType === TaskType.TASK ? t.dueDate : dueDate,
-        days: taskType === TaskType.TASK ? undefined : (selectedDays.length > 0 ? selectedDays : undefined),
+        dueDate: t.type === TaskType.TASK ? t.dueDate : dueDate,
+        days: t.type === TaskType.TASK ? undefined : (selectedDays.length > 0 ? selectedDays : undefined),
         icon: selectedIcon,
         iconColor: selectedIconColor,
-        targetReps: taskType === TaskType.TASK ? 1 : Math.max(1, targetReps),
+        targetReps: t.type === TaskType.TASK ? 1 : Math.max(1, targetReps),
         type: taskType
       } : t));
     } else {
@@ -223,7 +228,6 @@ const App: React.FC = () => {
           }
         }
 
-        // Se for tipo TAREFA, atualizamos também o status global para controlar a flutuação
         const globalStatus = (t.type === TaskType.TASK) ? nextStatus : t.status;
 
         return {
@@ -302,8 +306,18 @@ const App: React.FC = () => {
       }
     };
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+      if (task.type === TaskType.TASK) {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, task });
+      }
+    };
+
     return (
-      <div className={`group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}>
+      <div 
+        onContextMenu={handleContextMenu}
+        className={`group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}
+      >
         {subTab === 'today' && (
           <button onClick={() => toggleTaskStatus(task.id)} className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}>
             {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED ? (
@@ -406,7 +420,6 @@ const App: React.FC = () => {
                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} Registros</span>
                 </div>
 
-                {/* BARRA DE CADASTRO RÁPIDO */}
                 <form onSubmit={handleQuickAdd} className="px-4 py-3 md:px-6 md:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
                   <div className="w-8 h-8 flex items-center justify-center text-cyan-500"><Icons.Plus /></div>
                   <input 
@@ -450,6 +463,29 @@ const App: React.FC = () => {
           <p className="text-[7px] md:text-[8px] font-bold text-slate-200 dark:text-slate-800 uppercase tracking-[0.2em]">HOME // Protocol v2.5</p>
         </footer>
       </main>
+
+      {/* Menu de Contexto */}
+      {contextMenu && (
+        <div 
+          className="fixed z-[200] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-xl py-2 min-w-[160px] animate-fade-in"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            onClick={() => { handleOpenEditTask(contextMenu.task); setContextMenu(null); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+          >
+            <div className="text-slate-400"><Icons.Edit /></div> EDITAR
+          </button>
+          <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1 mx-2" />
+          <button 
+            onClick={() => { setTaskToDelete(contextMenu.task); setIsDeleteModalOpen(true); setContextMenu(null); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+          >
+            <div className="text-red-400"><Icons.Trash /></div> APAGAR
+          </button>
+        </div>
+      )}
 
       {/* Modais */}
       {isModalOpen && (
