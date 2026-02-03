@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Task, Priority, TaskStatus } from './types';
+import { Task, Priority, TaskStatus, TaskHistory } from './types';
 import { Icons, CATEGORIES, DAYS_OF_WEEK, TASK_COLORS } from './constants';
 
 type Tab = 'tasks';
@@ -140,7 +140,8 @@ const App: React.FC = () => {
         icon: selectedIcon,
         iconColor: selectedIconColor,
         targetReps: Math.max(1, targetReps),
-        currentReps: 0
+        currentReps: 0,
+        history: {}
       };
       setTasks(prev => [newTask, ...prev]);
     }
@@ -160,18 +161,37 @@ const App: React.FC = () => {
     
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
+        const history = t.history || {};
+        const currentDayState: TaskHistory = history[viewDateStr] || { currentReps: 0, status: TaskStatus.TODO };
+        
+        let nextReps = currentDayState.currentReps;
+        let nextStatus = currentDayState.status;
+
         if (t.targetReps > 1) {
-          const nextReps = t.currentReps + 1;
-          const isFinished = nextReps >= t.targetReps;
-          return { 
-            ...t, 
-            currentReps: isFinished ? t.targetReps : nextReps,
-            status: isFinished ? TaskStatus.COMPLETED : TaskStatus.TODO
-          };
+          nextReps = currentDayState.currentReps + 1;
+          if (nextReps >= t.targetReps) {
+            nextReps = t.targetReps;
+            nextStatus = TaskStatus.COMPLETED;
+          } else {
+            nextStatus = TaskStatus.TODO;
+          }
         } else {
-          const nextStatus = t.status === TaskStatus.COMPLETED ? TaskStatus.TODO : TaskStatus.COMPLETED;
-          return { ...t, status: nextStatus, currentReps: nextStatus === TaskStatus.COMPLETED ? 1 : 0 };
+          if (currentDayState.status === TaskStatus.COMPLETED) {
+            nextStatus = TaskStatus.TODO;
+            nextReps = 0;
+          } else {
+            nextStatus = TaskStatus.COMPLETED;
+            nextReps = 1;
+          }
         }
+
+        return {
+          ...t,
+          history: {
+            ...history,
+            [viewDateStr]: { currentReps: nextReps, status: nextStatus }
+          }
+        };
       }
       return t;
     }));
@@ -233,35 +253,39 @@ const App: React.FC = () => {
   );
 
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
-    const showAsCompleted = subTab === 'today' && task.status === TaskStatus.COMPLETED;
+    const dayState = (task.history && task.history[viewDateStr]) || { currentReps: 0, status: TaskStatus.TODO };
+    const showAsCompleted = subTab === 'today' && dayState.status === TaskStatus.COMPLETED;
 
     return (
       <div 
-        className="group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all border-l-4 border-transparent hover:border-l-slate-950 dark:hover:border-l-white"
-        style={{ borderLeftColor: showAsCompleted ? (theme === 'dark' ? '#334155' : '#cbd5e1') : 'transparent' }}
+        className={`group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent 
+          ${showAsCompleted 
+            ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' 
+            : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}
+        `}
       >
         {subTab === 'today' && (
           <button 
             onClick={() => toggleTaskStatus(task.id)}
             className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative 
-              ${task.status === TaskStatus.COMPLETED 
-                ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white text-white dark:text-slate-950' 
+              ${dayState.status === TaskStatus.COMPLETED 
+                ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
                 : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}
-              hover:border-slate-950 dark:hover:border-white cursor-pointer`}
+              hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}
           >
-            {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED ? (
+            {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED ? (
                <div className="flex flex-col items-center">
-                 <span className="text-[9px] md:text-[10px] font-bold">{task.currentReps}</span>
+                 <span className="text-[9px] md:text-[10px] font-bold">{dayState.currentReps}</span>
                  <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
                  <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
                </div>
             ) : (
-              task.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
+              dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />
             )}
-            {task.targetReps > 1 && task.status !== TaskStatus.COMPLETED && (
+            {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED && (
               <div 
                 className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" 
-                style={{ clipPath: `inset(${100 - (task.currentReps / task.targetReps) * 100}% 0 0 0)` }}
+                style={{ clipPath: `inset(${100 - (dayState.currentReps / task.targetReps) * 100}% 0 0 0)` }}
               />
             )}
           </button>
@@ -269,21 +293,26 @@ const App: React.FC = () => {
 
         <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
           <div className={`${subTab === 'registry' ? 'flex' : 'hidden md:flex'} w-9 h-9 md:w-10 md:h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0 border border-slate-100 dark:border-slate-800 md:border-none`}>
-             <TaskIcon name={task.icon} color={task.iconColor} />
+             <TaskIcon name={task.icon} color={showAsCompleted ? '#10b981' : task.iconColor} />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 md:gap-3">
-               <h4 className={`text-sm font-bold tracking-tight truncate ${showAsCompleted ? 'line-through text-slate-200 dark:text-slate-700' : 'text-slate-950 dark:text-white'}`}>
+               <h4 className={`text-sm font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400' : 'text-slate-950 dark:text-white'}`}>
                  {task.title}
                </h4>
+               {showAsCompleted && (
+                 <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">
+                    OK // OPERAÇÃO CONCLUÍDA
+                 </span>
+               )}
                {task.targetReps > 1 && (
-                 <span className="text-[8px] md:text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest shrink-0">
-                   [{task.currentReps}/{task.targetReps}]
+                 <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>
+                   [{dayState.currentReps}/{task.targetReps}]
                  </span>
                )}
             </div>
             <div className="flex items-center gap-5 mt-0.5 md:mt-1">
-              <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-500 flex items-center gap-1.5 whitespace-nowrap">
+              <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : 'text-slate-300 dark:text-slate-500'}`}>
                 {task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
               </span>
             </div>
