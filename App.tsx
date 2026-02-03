@@ -11,8 +11,11 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isStylePickerOpen, setIsStylePickerOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
-  // Estados para o formulário de cadastro
+  // Estados para o formulário de cadastro/edição
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -55,36 +58,67 @@ const App: React.FC = () => {
     return title.trim() !== '' && targetReps > 0;
   }, [title, targetReps]);
 
-  const handleRegisterTask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isFormValid) return;
-    
-    const newTask: Task = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: title,
-      description: '',
-      priority: Priority.MEDIUM, 
-      status: TaskStatus.TODO,
-      category: CATEGORIES[0].name, 
-      dueDate,
-      days: selectedDays.length > 0 ? selectedDays : undefined,
-      createdAt: new Date().toISOString(),
-      icon: selectedIcon,
-      iconColor: selectedIconColor,
-      targetReps: Math.max(1, targetReps),
-      currentReps: 0
-    };
-
-    setTasks(prev => [newTask, ...prev]);
+  const handleOpenNewTask = () => {
+    setEditingTaskId(null);
     setTitle('');
     setDueDate(todayStr);
     setSelectedDays([]);
     setTargetReps(1);
     setSelectedIcon('List');
     setSelectedIconColor(TASK_COLORS[0]);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditTask = (task: Task) => {
+    setEditingTaskId(task.id);
+    setTitle(task.title);
+    setDueDate(task.dueDate);
+    setSelectedDays(task.days || []);
+    setTargetReps(task.targetReps);
+    setSelectedIcon(task.icon);
+    setSelectedIconColor(task.iconColor);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmitTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isFormValid) return;
+    
+    if (editingTaskId) {
+      // Modo Edição
+      setTasks(prev => prev.map(t => t.id === editingTaskId ? {
+        ...t,
+        title,
+        dueDate,
+        days: selectedDays.length > 0 ? selectedDays : undefined,
+        icon: selectedIcon,
+        iconColor: selectedIconColor,
+        targetReps: Math.max(1, targetReps),
+      } : t));
+    } else {
+      // Modo Criação
+      const newTask: Task = {
+        id: Math.random().toString(36).substr(2, 9),
+        title: title,
+        description: '',
+        priority: Priority.MEDIUM, 
+        status: TaskStatus.TODO,
+        category: CATEGORIES[0].name, 
+        dueDate,
+        days: selectedDays.length > 0 ? selectedDays : undefined,
+        createdAt: new Date().toISOString(),
+        icon: selectedIcon,
+        iconColor: selectedIconColor,
+        targetReps: Math.max(1, targetReps),
+        currentReps: 0
+      };
+      setTasks(prev => [newTask, ...prev]);
+    }
+
     setIsModalOpen(false);
     setIsCalendarOpen(false);
     setIsStylePickerOpen(false);
+    setEditingTaskId(null);
   };
 
   const toggleDay = (day: string) => {
@@ -111,9 +145,11 @@ const App: React.FC = () => {
     }));
   };
 
-  const deleteTask = (id: string) => {
-    if (confirm("CONFIRMAR EXCLUSÃO PERMANENTE?")) {
-      setTasks(prev => prev.filter(t => t.id !== id));
+  const confirmDeleteTask = () => {
+    if (taskToDelete) {
+      setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
+      setTaskToDelete(null);
+      setIsDeleteModalOpen(false);
     }
   };
 
@@ -174,7 +210,7 @@ const App: React.FC = () => {
           </button>
           <button 
             onClick={() => setActiveTab('tasks')}
-            className={`flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap ${activeTab === 'tasks' ? 'bg-slate-950 text-white md:border-l-4 border-b-4 md:border-b-0 border-white' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap ${activeTab === 'tasks' ? 'bg-slate-900 text-white md:border-l-4 border-b-4 md:border-b-0 border-white' : 'text-slate-500 hover:text-slate-300'}`}
           >
             <Icons.List />
             TAREFAS
@@ -215,7 +251,7 @@ const App: React.FC = () => {
           </div>
           
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenNewTask}
             className="w-full md:w-auto flex items-center justify-center gap-2 bg-slate-950 text-white px-6 py-3 md:py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 shadow-sm"
           >
             <Icons.Plus /> Novo Registro
@@ -293,12 +329,25 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       
-                      <button 
-                        onClick={() => deleteTask(task.id)}
-                        className="p-2 text-slate-200 hover:text-red-600 transition-all opacity-100 md:opacity-0 group-hover:opacity-100"
-                      >
-                        <Icons.Trash />
-                      </button>
+                      <div className="flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleOpenEditTask(task)}
+                          className="p-2 text-slate-300 hover:text-slate-950 transition-all"
+                          title="Editar Protocolo"
+                        >
+                          <Icons.Edit />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setTaskToDelete(task);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="p-2 text-slate-200 hover:text-red-600 transition-all"
+                          title="Cancelar Registro"
+                        >
+                          <Icons.Trash />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -312,7 +361,7 @@ const App: React.FC = () => {
         </footer>
       </main>
 
-      {/* Modal Responsivo e Unificado */}
+      {/* Modal Responsivo e Unificado (Cadastro/Edição) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-6 animate-fade-in overflow-y-auto bg-slate-950/25 backdrop-blur-[6px]">
           <div className="absolute inset-0" onClick={() => setIsModalOpen(false)}></div>
@@ -321,7 +370,9 @@ const App: React.FC = () => {
             {/* Header */}
             <div className="bg-slate-950 text-white p-5 md:p-6 flex items-center justify-between">
               <div>
-                <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] md:tracking-[0.5em] leading-none">Novo Registro de Fluxo</h3>
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] md:tracking-[0.5em] leading-none">
+                  {editingTaskId ? 'Editar Registro de Fluxo' : 'Novo Registro de Fluxo'}
+                </h3>
                 <p className="text-[7px] opacity-40 font-bold uppercase mt-1 tracking-widest">Protocolo de Configuração v2.5</p>
               </div>
               <button 
@@ -332,7 +383,7 @@ const App: React.FC = () => {
               </button>
             </div>
             
-            <form onSubmit={handleRegisterTask} className="p-5 md:p-8 space-y-8 md:space-y-10 overflow-y-auto max-h-[85vh] scrollbar-hide">
+            <form onSubmit={handleSubmitTask} className="p-5 md:p-8 space-y-8 md:space-y-10 overflow-y-auto max-h-[85vh] scrollbar-hide">
               
               {/* 1. Atividade e Estilo Unificados */}
               <div className="space-y-3 md:space-y-4">
@@ -368,7 +419,7 @@ const App: React.FC = () => {
                     </div>
                     {/* Ícones Grid Adaptativo */}
                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                      {Object.keys(Icons).filter(k => !['Plus', 'Trash', 'Check', 'List'].includes(k)).concat(['List']).map(iconName => (
+                      {Object.keys(Icons).filter(k => !['Plus', 'Trash', 'Check', 'List', 'Edit'].includes(k)).concat(['List']).map(iconName => (
                         <button 
                           key={iconName} 
                           type="button" 
@@ -504,7 +555,7 @@ const App: React.FC = () => {
                   disabled={!isFormValid}
                   className="w-full bg-slate-950 text-white py-4 md:py-6 font-black text-[10px] md:text-[11px] uppercase tracking-[0.4em] md:tracking-[0.6em] hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-slate-950 disabled:active:scale-100"
                 >
-                  CADASTRAR
+                  {editingTaskId ? 'ATUALIZAR' : 'CADASTRAR'}
                 </button>
               </div>
             </form>
@@ -512,11 +563,45 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Modal Customizado de Confirmação de Exclusão */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 animate-fade-in bg-slate-950/40 backdrop-blur-[4px]">
+          <div className="absolute inset-0" onClick={() => setIsDeleteModalOpen(false)}></div>
+          <div className="relative w-full max-w-sm bg-white border border-slate-200 shadow-2xl p-8 space-y-8 animate-slide-up">
+            <div className="space-y-4">
+              <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600 flex items-center gap-3">
+                <span className="w-2 h-2 bg-red-600"></span> CANCELAR REGISTRO?
+              </h3>
+              <p className="text-sm font-bold text-slate-950 leading-relaxed">
+                Tem certeza que deseja remover este protocolo permanentemente? Todos os dados associados a esta tarefa serão eliminados.
+              </p>
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={confirmDeleteTask}
+                className="w-full bg-red-600 text-white py-4 font-black text-[10px] uppercase tracking-[0.4em] hover:bg-red-700 transition-all active:scale-95"
+              >
+                SIM, CANCELAR
+              </button>
+              <button 
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="w-full bg-white border border-slate-300 text-slate-950 py-4 font-black text-[10px] uppercase tracking-[0.4em] hover:bg-slate-50 transition-all active:scale-95"
+              >
+                NÃO, MANTER
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slide-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .animate-slide-down { animation: slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
