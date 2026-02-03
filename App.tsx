@@ -16,7 +16,7 @@ const App: React.FC = () => {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [targetReps, setTargetReps] = useState(1);
+  const [targetReps, setTargetReps] = useState<number>(1);
   const [selectedIcon, setSelectedIcon] = useState('List');
   const [selectedIconColor, setSelectedIconColor] = useState(TASK_COLORS[0]);
 
@@ -412,8 +412,11 @@ const App: React.FC = () => {
                       <input 
                         type="number" 
                         min="1" 
-                        value={targetReps} 
-                        onChange={(e) => setTargetReps(parseInt(e.target.value) || 1)} 
+                        value={targetReps || ''} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTargetReps(val === '' ? 0 : parseInt(val));
+                        }} 
                         className="w-16 bg-white border border-slate-200 p-2 text-center text-xs font-bold text-slate-950 outline-none focus:border-slate-950"
                       />
                       <span className="text-[7px] text-slate-400 font-bold uppercase tracking-tight leading-none">Protocolo de <br className="hidden sm:block"/>conclusão diária</span>
