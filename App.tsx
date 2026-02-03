@@ -26,8 +26,8 @@ const mapTaskFromDB = (db: any): Task => ({
   dueDate: db.due_date,
   days: db.days,
   createdAt: db.created_at,
-  icon: db.icon,
-  iconColor: db.icon_color,
+  icon: db.icon || 'List',
+  iconColor: db.icon_color || '#0f172a',
   targetReps: db.target_reps,
   currentReps: db.current_reps,
   type: db.type as TaskType,
@@ -46,7 +46,6 @@ const App: React.FC = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isStylePickerOpen, setIsStylePickerOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
@@ -57,8 +56,6 @@ const App: React.FC = () => {
   const [dueDate, setDueDate] = useState(formatLocalDate(new Date()));
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [targetReps, setTargetReps] = useState<number>(1);
-  const [selectedIcon, setSelectedIcon] = useState('List');
-  const [selectedIconColor, setSelectedIconColor] = useState(TASK_COLORS[0]);
   const [taskType, setTaskType] = useState<TaskType>(TaskType.DAILY);
 
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
@@ -161,8 +158,6 @@ const App: React.FC = () => {
     setDueDate(formatLocalDate(new Date()));
     setSelectedDays([]);
     setTargetReps(1);
-    setSelectedIcon('List');
-    setSelectedIconColor(TASK_COLORS[0]);
     setTaskType(TaskType.DAILY);
     setIsModalOpen(true);
   };
@@ -202,8 +197,6 @@ const App: React.FC = () => {
     setDueDate(task.dueDate);
     setSelectedDays(task.days || []);
     setTargetReps(task.targetReps);
-    setSelectedIcon(task.icon);
-    setSelectedIconColor(task.iconColor);
     setTaskType(task.type || TaskType.DAILY);
     setIsModalOpen(true);
   };
@@ -213,12 +206,10 @@ const App: React.FC = () => {
     if (!isFormValid) return;
     
     if (editingTaskId) {
-      const updatedData = {
+      const updatedData: any = {
         title,
         due_date: dueDate,
         days: taskType === TaskType.TASK ? null : (selectedDays.length > 0 ? selectedDays : null),
-        icon: selectedIcon,
-        icon_color: selectedIconColor,
         target_reps: taskType === TaskType.TASK ? 1 : Math.max(1, targetReps),
         type: taskType
       };
@@ -243,8 +234,8 @@ const App: React.FC = () => {
         category: CATEGORIES[0].name, 
         due_date: dueDate,
         days: taskType === TaskType.TASK ? null : (selectedDays.length > 0 ? selectedDays : null),
-        icon: selectedIcon,
-        icon_color: selectedIconColor,
+        icon: 'List',
+        icon_color: '#0f172a',
         target_reps: taskType === TaskType.TASK ? 1 : Math.max(1, targetReps),
         current_reps: 0,
         type: taskType,
@@ -262,7 +253,6 @@ const App: React.FC = () => {
 
     setIsModalOpen(false);
     setIsCalendarOpen(false);
-    setIsStylePickerOpen(false);
     setEditingTaskId(null);
   };
 
@@ -350,11 +340,6 @@ const App: React.FC = () => {
     setSelectedViewDate(new Date());
   };
 
-  const TaskIcon = ({ name, color, className }: { name: string, color: string, className?: string }) => {
-    const IconComponent = (Icons as any)[name] || Icons.List;
-    return <div style={{ color }} className={className}><IconComponent /></div>;
-  };
-
   const SectionLabel = ({ number, text }: { number: string, text: string }) => (
     <label className="text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-[0.15em] flex items-center gap-3">
       <span className="w-1.5 h-1.5 bg-slate-950 dark:bg-white"></span> {number}. {text}
@@ -387,23 +372,19 @@ const App: React.FC = () => {
         className={`group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}
       >
         {subTab === 'today' && (
-          <button onClick={() => toggleTaskStatus(task.id)} className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}>
-            {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED ? (
-               <div className="flex flex-col items-center">
-                 <span className="text-[9px] md:text-[10px] font-bold">{dayState.currentReps}</span>
-                 <div className="w-3 h-[1px] bg-slate-100 dark:bg-slate-700 mb-0.5 opacity-30"></div>
-                 <span className="text-[7px] md:text-[8px] opacity-50">{task.targetReps}</span>
-               </div>
-            ) : (dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />)}
-            {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED && (
-              <div className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" style={{ clipPath: `inset(${100 - (dayState.currentReps / task.targetReps) * 100}% 0 0 0)` }} />
+          <div className="flex flex-col items-center gap-2">
+            {task.targetReps > 1 && (
+              <div className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest">{dayState.currentReps} <br/> {task.targetReps}</div>
             )}
-          </button>
+            <button onClick={() => toggleTaskStatus(task.id)} className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}>
+              {dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />}
+              {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED && (
+                <div className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" style={{ clipPath: `inset(${100 - (dayState.currentReps / task.targetReps) * 100}% 0 0 0)` }} />
+              )}
+            </button>
+          </div>
         )}
         <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-          <div className={`${subTab === 'registry' ? 'flex' : 'hidden md:flex'} w-9 h-9 md:w-10 md:h-10 items-center justify-center bg-slate-50 dark:bg-slate-900 shrink-0 border border-slate-100 dark:border-slate-800 md:border-none`}>
-             <TaskIcon name={task.icon} color={showAsCompleted ? '#10b981' : task.iconColor} />
-          </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 md:gap-3">
                <h4 className={`text-sm font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
@@ -565,30 +546,13 @@ const App: React.FC = () => {
             <form onSubmit={handleSubmitTask} className="p-5 md:p-8 space-y-8 md:space-y-10 overflow-y-auto max-h-[85vh] scrollbar-hide">
               <div className="space-y-3 md:space-y-4">
                 <SectionLabel number="01" text="Definição e Identidade" />
-                <div className="flex gap-2">
-                  <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Nome da operação..." className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 dark:text-white outline-none focus:border-slate-400 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-200 dark:placeholder:text-slate-700" />
-                  <button type="button" onClick={() => setIsStylePickerOpen(!isStylePickerOpen)} className={`w-14 md:w-16 flex items-center justify-center transition-all border shrink-0 ${isStylePickerOpen ? 'bg-slate-950 dark:bg-white border-slate-950 dark:border-white shadow-inner' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-900'}`}><TaskIcon name={selectedIcon} color={isStylePickerOpen && theme === 'dark' ? '#0f172a' : selectedIconColor} className="scale-125" /></button>
-                </div>
-                {isStylePickerOpen && (
-                  <div className="bg-slate-50 dark:bg-slate-900 p-4 md:p-6 border border-slate-100 dark:border-slate-800 space-y-6 md:space-y-8 animate-slide-down">
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                      {Object.keys(Icons).filter(k => !['Plus', 'Trash', 'Check', 'List', 'Edit', 'Sun', 'Moon'].includes(k)).concat(['List']).map(iconName => (
-                        <button key={iconName} type="button" onClick={() => setSelectedIcon(iconName)} className={`aspect-square flex items-center justify-center transition-all border ${selectedIcon === iconName ? 'bg-white dark:bg-slate-800 border-slate-950 dark:border-white shadow-sm scale-105 z-10' : 'bg-slate-100/50 dark:bg-slate-950/50 border-transparent hover:border-slate-300 dark:hover:border-slate-700'}`}><TaskIcon name={iconName} color={selectedIcon === iconName ? selectedIconColor : (theme === 'dark' ? '#334155' : '#cbd5e1')} /></button>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide border-t border-slate-200/50 dark:border-slate-800 pt-5 md:pt-6">
-                      {TASK_COLORS.map(color => (
-                        <button key={color} type="button" onClick={() => setSelectedIconColor(color)} style={{ backgroundColor: color }} className={`w-5 h-5 md:w-6 md:h-6 shrink-0 transition-all border-2 ${selectedIconColor === color ? 'border-slate-950 dark:border-white ring-2 ring-slate-100 dark:ring-slate-800 scale-125' : 'border-white dark:border-slate-950 opacity-60 hover:opacity-100'}`} />
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Nome da operação..." className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 dark:text-white outline-none focus:border-slate-400 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-200 dark:placeholder:text-slate-700" />
               </div>
               <div className="space-y-4 md:space-y-5">
                 <SectionLabel number="02" text="Tipo de Registro" />
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => {setTaskType(TaskType.HABIT); if(selectedIconColor === '#f59e0b' || selectedIconColor === '#06b6d4') setSelectedIconColor('#8b5cf6')}} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.HABIT ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}>HÁBITO</button>
-                  <button type="button" onClick={() => {setTaskType(TaskType.DAILY); if(selectedIconColor === '#8b5cf6' || selectedIconColor === '#06b6d4') setSelectedIconColor('#f59e0b')}} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.DAILY ? 'bg-amber-600 border-amber-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}>COTIDIANO</button>
+                  <button type="button" onClick={() => setTaskType(TaskType.HABIT)} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.HABIT ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}>HÁBITO</button>
+                  <button type="button" onClick={() => setTaskType(TaskType.DAILY)} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.DAILY ? 'bg-amber-600 border-amber-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}>COTIDIANO</button>
                 </div>
               </div>
               {taskType !== TaskType.TASK && (
