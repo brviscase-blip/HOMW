@@ -57,7 +57,7 @@ const App: React.FC = () => {
     
     const newTask: Task = {
       id: Math.random().toString(36).substr(2, 9),
-      title: title.toUpperCase(),
+      title: title, // Removido .toUpperCase() para respeitar maiúsculas/minúsculas
       description: '',
       priority: Priority.MEDIUM, 
       status: TaskStatus.TODO,
@@ -267,7 +267,7 @@ const App: React.FC = () => {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 md:gap-3">
-                             <h4 className={`text-sm font-bold tracking-tight uppercase truncate ${task.status === TaskStatus.COMPLETED ? 'line-through text-slate-200' : 'text-slate-950'}`}>
+                             <h4 className={`text-sm font-bold tracking-tight truncate ${task.status === TaskStatus.COMPLETED ? 'line-through text-slate-200' : 'text-slate-950'}`}>
                                {task.title}
                              </h4>
                              {task.targetReps > 1 && (
@@ -333,8 +333,8 @@ const App: React.FC = () => {
                   value={title} 
                   onChange={(e) => setTitle(e.target.value)} 
                   required 
-                  placeholder="EX: MEDITAÇÃO, ESTUDO, TREINO..." 
-                  className="w-full bg-slate-50 border border-slate-100 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 outline-none focus:border-slate-400 focus:bg-white transition-all uppercase placeholder:text-slate-200" 
+                  placeholder="EX: Meditação, Estudo, Treino..." 
+                  className="w-full bg-slate-50 border border-slate-100 p-4 md:p-5 text-base md:text-lg font-bold text-slate-950 outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-200" 
                 />
               </div>
 
