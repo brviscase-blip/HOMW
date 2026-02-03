@@ -174,7 +174,7 @@ const App: React.FC = () => {
           </button>
           <button 
             onClick={() => setActiveTab('tasks')}
-            className={`flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap ${activeTab === 'tasks' ? 'bg-slate-900 text-white md:border-l-4 border-b-4 md:border-b-0 border-white' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex items-center gap-3 px-4 md:px-5 py-3 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap ${activeTab === 'tasks' ? 'bg-slate-950 text-white md:border-l-4 border-b-4 md:border-b-0 border-white' : 'text-slate-500 hover:text-slate-300'}`}
           >
             <Icons.List />
             TAREFAS
@@ -224,8 +224,8 @@ const App: React.FC = () => {
 
         <div className="flex-1 p-4 md:p-6 lg:p-10">
           <section className="animate-fade-in">
-            <div className="bg-white border border-slate-200 min-h-[500px] md:min-h-[600px] shadow-sm flex flex-col">
-              <div className="p-4 md:p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+            <div className="bg-white border border-slate-300 min-h-[500px] md:min-h-[600px] shadow-sm flex flex-col">
+              <div className="p-4 md:p-6 border-b border-slate-300 flex items-center justify-between bg-slate-50/50">
                 <h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 tracking-[0.3em] uppercase">
                   {activeTab === 'today' ? 'Atividades para este Período' : 'Histórico Completo de Registros'}
                 </h3>
@@ -234,7 +234,7 @@ const App: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex-1 overflow-y-auto divide-y divide-slate-200">
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-300">
                 {filteredTasks.length === 0 ? (
                   <div className="p-16 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
                     <div className="w-12 h-12 md:w-16 md:h-16 border-2 border-slate-100 flex items-center justify-center text-slate-300 mb-6">
@@ -247,7 +247,7 @@ const App: React.FC = () => {
                     <div 
                       key={task.id} 
                       className="group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 hover:bg-slate-50 transition-all border-l-4 border-transparent hover:border-l-slate-950"
-                      style={{ borderLeftColor: task.status !== TaskStatus.COMPLETED ? 'transparent' : '#e2e8f0' }}
+                      style={{ borderLeftColor: task.status !== TaskStatus.COMPLETED ? 'transparent' : '#cbd5e1' }}
                     >
                       <button 
                         onClick={() => toggleTaskStatus(task.id)}
@@ -295,7 +295,7 @@ const App: React.FC = () => {
                       
                       <button 
                         onClick={() => deleteTask(task.id)}
-                        className="p-2 text-slate-100 hover:text-red-600 transition-all opacity-100 md:opacity-0 group-hover:opacity-100"
+                        className="p-2 text-slate-200 hover:text-red-600 transition-all opacity-100 md:opacity-0 group-hover:opacity-100"
                       >
                         <Icons.Trash />
                       </button>
