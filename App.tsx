@@ -422,10 +422,8 @@ const App: React.FC = () => {
     };
 
     const handleContextMenu = (e: React.MouseEvent) => {
-      if (task.type === TaskType.TASK || subTab === 'registry') {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, task });
-      }
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, task });
     };
 
     return (
@@ -436,7 +434,7 @@ const App: React.FC = () => {
         {subTab === 'today' && (
           <div className="flex flex-col items-center justify-center z-20">
             <button 
-              onClick={() => toggleTaskStatus(task.id)} 
+              onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task.id); }} 
               title={showAsCompleted ? "Clique para desfazer tudo" : "Clique para registrar progresso"}
               className={`w-10 h-10 md:w-11 md:h-11 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}
             >
@@ -461,7 +459,7 @@ const App: React.FC = () => {
              <div className="flex items-center gap-1.5">
                <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
                {task.timeWindow && (
-                 <span className="text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 bg-slate-950 dark:bg-white text-white dark:text-slate-950 border border-slate-950 dark:border-white shadow-sm">
+                 <span className="text-[7px] font-black px-2.5 py-0.5 tracking-[0.1em] uppercase shrink-0 bg-slate-950 dark:bg-white text-white dark:text-slate-950 border border-slate-950 dark:border-white shadow-[2px_2px_0px_rgba(0,0,0,0.1)]">
                    {task.timeWindow}:00H
                  </span>
                )}
@@ -489,10 +487,10 @@ const App: React.FC = () => {
             <h1 className="text-[10px] md:text-sm font-roboto font-bold tracking-[0.2em] text-white uppercase">HOME</h1>
           </div>
           <div className="md:hidden flex items-center gap-3">
-            <button onClick={toggleFullScreen} className="flex items-center justify-center w-8 h-8 text-slate-400">
+            <button onClick={toggleFullScreen} title="Tela Cheia" className="flex items-center justify-center w-8 h-8 text-slate-400">
               {isFullscreen ? <Icons.Minimize /> : <Icons.Expand />}
             </button>
-            <button onClick={toggleTheme} className="flex items-center justify-center w-8 h-8 text-slate-400">
+            <button onClick={toggleTheme} title="Tema" className="flex items-center justify-center w-8 h-8 text-slate-400">
               {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
             </button>
           </div>
@@ -515,10 +513,10 @@ const App: React.FC = () => {
         </nav>
         <div className="hidden md:flex flex-col gap-1 mt-auto pt-8 border-t border-slate-900">
           <button onClick={toggleFullScreen} className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2">
-            {isFullscreen ? <Icons.Minimize /> : <Icons.Expand />} {isFullscreen ? 'SAIR TELA CHEIA' : 'EXPANDIR A TELA'}
+            <div className="w-4 h-4 flex items-center justify-center">{isFullscreen ? <Icons.Minimize /> : <Icons.Expand />}</div> {isFullscreen ? 'SAIR TELA CHEIA' : 'EXPANDIR A TELA'}
           </button>
           <button onClick={toggleTheme} className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2">
-            {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />} {theme === 'light' ? 'DARK MODE' : 'LIGHT MODE'}
+            <div className="w-4 h-4 flex items-center justify-center">{theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}</div> {theme === 'light' ? 'DARK MODE' : 'LIGHT MODE'}
           </button>
         </div>
       </aside>
