@@ -90,6 +90,41 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
+  // Listener para tecla Esc (Desktop)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+        setIsDeleteModalOpen(false);
+        setIsCalendarOpen(false);
+        setContextMenu(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Listener para botão Voltar (Mobile)
+  useEffect(() => {
+    if (isModalOpen || isDeleteModalOpen) {
+      // Quando abrir modal, injeta estado no histórico
+      window.history.pushState({ modalOpen: true }, '');
+    }
+
+    const handlePopState = () => {
+      // Ao detectar "voltar", fecha os modais
+      setIsModalOpen(false);
+      setIsDeleteModalOpen(false);
+      setIsCalendarOpen(false);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isModalOpen, isDeleteModalOpen]);
+
   useEffect(() => {
     const handleGlobalClick = () => setContextMenu(null);
     window.addEventListener('click', handleGlobalClick);
