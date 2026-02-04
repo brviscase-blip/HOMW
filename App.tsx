@@ -228,7 +228,7 @@ const App: React.FC = () => {
         priority: Priority.MEDIUM, 
         status: TaskStatus.TODO,
         category: CATEGORIES[0].name, 
-        due_date: dueDate,
+      due_date: dueDate,
         days: taskType === TaskType.TASK ? null : (selectedDays.length > 0 ? selectedDays : null),
         icon: 'List',
         icon_color: '#0f172a',
@@ -368,28 +368,25 @@ const App: React.FC = () => {
         className={`group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}
       >
         {subTab === 'today' && (
-          <div className="flex flex-col items-center gap-2">
-            {task.targetReps > 1 && (
-              <div className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest text-center leading-tight">{dayState.currentReps} <br/> {task.targetReps}</div>
-            )}
-            <button onClick={() => toggleTaskStatus(task.id)} className={`w-9 h-9 md:w-10 md:h-10 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}>
+          <div className="flex flex-col items-center justify-center">
+            <button 
+              onClick={() => toggleTaskStatus(task.id)} 
+              className={`w-10 h-10 md:w-11 md:h-11 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}
+            >
               {dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />}
-              {task.targetReps > 1 && dayState.status !== TaskStatus.COMPLETED && (
-                <div className="absolute inset-0 border-2 border-slate-950 dark:border-white opacity-10 transition-all" style={{ clipPath: `inset(${100 - (dayState.currentReps / task.targetReps) * 100}% 0 0 0)` }} />
-              )}
             </button>
           </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-             <h4 className={`text-sm font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
-             {showAsCompleted && <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">OK // OPERAÇÃO CONCLUÍDA</span>}
+             <h4 className={`text-sm md:text-base font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400 opacity-60' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
+             {showAsCompleted && <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">CONCLUÍDA</span>}
              <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
-             {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-300 dark:text-slate-600'}`}>[{dayState.currentReps}/{task.targetReps}]</span>}
+             {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-400 dark:text-slate-500'}`}>PROGRESSO: {dayState.currentReps}/{task.targetReps}</span>}
           </div>
-          <div className="flex items-center gap-5 mt-1">
-            <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : 'text-slate-300 dark:text-slate-500'}`}>
-              {task.type === TaskType.TASK ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FLUTUANTE // AGUARDANDO') : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))}
+          <div className="flex items-center gap-5 mt-1 opacity-60">
+            <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : 'text-slate-400 dark:text-slate-500'}`}>
+              {task.type === TaskType.TASK ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FILA DE OPERAÇÃO // FLUTUANTE') : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))}
             </span>
           </div>
         </div>
@@ -534,7 +531,7 @@ const App: React.FC = () => {
           <div className="absolute inset-0" onClick={() => setIsModalOpen(false)}></div>
           <section className="relative w-full max-w-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl font-roboto overflow-hidden">
             <div className="bg-slate-950 dark:bg-slate-900 text-white p-5 md:p-6 flex items-center justify-between">
-              <div><h3 className="text-[10px] font-bold uppercase tracking-[0.4em] leading-none">{editingTaskId ? 'Editar Registro de Fluxo' : 'Novo Registro de Fluxo'}</h3><p className="text-[7px] opacity-40 font-bold uppercase mt-1 tracking-widest">Protocolo de Configuração v2.5</p></div>
+              <div><h3 className="text-[10px] font-bold uppercase tracking-[0.4em] leading-none">{editingTaskId ? 'Editar Registro' : 'Novo Registro de Fluxo'}</h3><p className="text-[7px] opacity-40 font-bold uppercase mt-1 tracking-widest">Protocolo de Configuração v2.5</p></div>
               <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 flex items-center justify-center text-sm font-bold hover:bg-white/10 transition-colors opacity-60 hover:opacity-100">×</button>
             </div>
             <form onSubmit={handleSubmitTask} className="p-5 md:p-8 space-y-8 md:space-y-10 overflow-y-auto max-h-[85vh] scrollbar-hide">
