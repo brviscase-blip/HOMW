@@ -47,6 +47,7 @@ const App: React.FC = () => {
     return (saved as Theme) || 'light';
   });
   
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -94,6 +95,15 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
+  // Sincronização de estado de tela cheia
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
+  }, []);
+
   // Listener para tecla Esc (Desktop)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -132,6 +142,18 @@ const App: React.FC = () => {
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Falha ao entrar em tela cheia: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   const realTodayStr = useMemo(() => formatLocalDate(new Date()), []);
   const viewDateStr = useMemo(() => formatLocalDate(selectedViewDate), [selectedViewDate]);
@@ -176,7 +198,6 @@ const App: React.FC = () => {
       });
     }
 
-    // Ordenação por janela do dia (tarefas sem janela ficam por último)
     return [...list].sort((a, b) => {
       const windowA = a.timeWindow || '99';
       const windowB = b.timeWindow || '99';
@@ -467,7 +488,14 @@ const App: React.FC = () => {
             <div className="w-5 h-5 md:w-6 md:h-6 bg-white flex items-center justify-center text-slate-950 font-black text-[10px] md:text-xs">H</div>
             <h1 className="text-[10px] md:text-sm font-roboto font-bold tracking-[0.2em] text-white uppercase">HOME</h1>
           </div>
-          <button onClick={toggleTheme} className="md:hidden flex items-center justify-center w-8 h-8 text-slate-400">{theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}</button>
+          <div className="md:hidden flex items-center gap-3">
+            <button onClick={toggleFullScreen} className="flex items-center justify-center w-8 h-8 text-slate-400">
+              {isFullscreen ? <Icons.Minimize /> : <Icons.Expand />}
+            </button>
+            <button onClick={toggleTheme} className="flex items-center justify-center w-8 h-8 text-slate-400">
+              {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
+            </button>
+          </div>
         </div>
         <nav className="flex flex-row md:flex-col gap-1 md:gap-2 flex-1 md:overflow-visible overflow-x-auto scrollbar-hide">
           <button onClick={() => setActiveTab('tasks')} className={`flex items-center gap-3 px-3 md:px-5 py-2 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap bg-slate-900 text-white md:border-l-4 border-b-2 md:border-b-0 border-white`}><Icons.List /> TAREFAS</button>
@@ -485,8 +513,13 @@ const App: React.FC = () => {
             </div>
           </div>
         </nav>
-        <div className="hidden md:block mt-auto pt-8 border-t border-slate-900">
-          <button onClick={toggleTheme} className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2">{theme === 'light' ? <Icons.Moon /> : <Icons.Sun />} {theme === 'light' ? 'DARK MODE' : 'LIGHT MODE'}</button>
+        <div className="hidden md:flex flex-col gap-1 mt-auto pt-8 border-t border-slate-900">
+          <button onClick={toggleFullScreen} className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2">
+            {isFullscreen ? <Icons.Minimize /> : <Icons.Expand />} {isFullscreen ? 'SAIR TELA CHEIA' : 'EXPANDIR A TELA'}
+          </button>
+          <button onClick={toggleTheme} className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2">
+            {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />} {theme === 'light' ? 'DARK MODE' : 'LIGHT MODE'}
+          </button>
         </div>
       </aside>
 
