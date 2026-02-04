@@ -38,6 +38,7 @@ export interface Task {
   currentReps: number;
   type: TaskType;
   history?: Record<string, TaskHistory>; // Mapeamento de data (YYYY-MM-DD) para estado
+  timeWindow?: string; // Janela horária (00 a 23)
 }
 
 export interface Routine {
