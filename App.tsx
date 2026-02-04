@@ -228,7 +228,7 @@ const App: React.FC = () => {
         priority: Priority.MEDIUM, 
         status: TaskStatus.TODO,
         category: CATEGORIES[0].name, 
-      due_date: dueDate,
+        due_date: dueDate,
         days: taskType === TaskType.TASK ? null : (selectedDays.length > 0 ? selectedDays : null),
         icon: 'List',
         icon_color: '#0f172a',
@@ -265,24 +265,26 @@ const App: React.FC = () => {
     const history = task.history || {};
     const currentDayState: TaskHistory = history[viewDateStr] || { currentReps: 0, status: TaskStatus.TODO };
     
-    let nextReps = currentDayState.currentReps;
-    let nextStatus = currentDayState.status;
+    let nextReps = 0;
+    let nextStatus = TaskStatus.TODO;
 
-    if (task.targetReps > 1) {
-      nextReps = currentDayState.currentReps + 1;
-      if (nextReps >= task.targetReps) {
-        nextReps = task.targetReps;
-        nextStatus = TaskStatus.COMPLETED;
-      } else {
-        nextStatus = TaskStatus.TODO;
-      }
+    if (currentDayState.status === TaskStatus.COMPLETED) {
+      // Se já está completo, o próximo clique reseta tudo (Undo total do dia)
+      nextReps = 0;
+      nextStatus = TaskStatus.TODO;
     } else {
-      if (currentDayState.status === TaskStatus.COMPLETED) {
-        nextStatus = TaskStatus.TODO;
-        nextReps = 0;
+      // Se não está completo, incrementa até o alvo
+      if (task.targetReps > 1) {
+        nextReps = (currentDayState.currentReps || 0) + 1;
+        if (nextReps >= task.targetReps) {
+          nextReps = task.targetReps;
+          nextStatus = TaskStatus.COMPLETED;
+        } else {
+          nextStatus = TaskStatus.TODO;
+        }
       } else {
-        nextStatus = TaskStatus.COMPLETED;
         nextReps = 1;
+        nextStatus = TaskStatus.COMPLETED;
       }
     }
 
@@ -345,6 +347,7 @@ const App: React.FC = () => {
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
     const dayState = (task.history && task.history[viewDateStr]) || { currentReps: 0, status: TaskStatus.TODO };
     const showAsCompleted = subTab === 'today' && dayState.status === TaskStatus.COMPLETED;
+    const progressPercent = task.targetReps > 1 ? (dayState.currentReps / task.targetReps) * 100 : 0;
 
     const getTypeColor = () => {
       switch(task.type) {
@@ -365,19 +368,30 @@ const App: React.FC = () => {
     return (
       <div 
         onContextMenu={handleContextMenu}
-        className={`group flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}
+        className={`group relative flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent overflow-hidden ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}
       >
         {subTab === 'today' && (
-          <div className="flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center justify-center z-20">
             <button 
               onClick={() => toggleTaskStatus(task.id)} 
-              className={`w-10 h-10 md:w-11 md:h-11 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}
+              title={showAsCompleted ? "Clique para desfazer tudo" : "Clique para registrar progresso"}
+              className={`w-10 h-10 md:w-11 md:h-11 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}
             >
-              {dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />}
+              {/* Progress Fill Layer (Inside the action box) */}
+              {!showAsCompleted && task.targetReps > 1 && progressPercent > 0 && (
+                <div 
+                  className="absolute bottom-0 left-0 w-full bg-emerald-500/20 dark:bg-emerald-400/40 transition-all duration-300 pointer-events-none" 
+                  style={{ height: `${progressPercent}%` }}
+                />
+              )}
+              
+              <div className="relative z-10">
+                {dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />}
+              </div>
             </button>
           </div>
         )}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 z-10">
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
              <h4 className={`text-sm md:text-base font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400 opacity-60' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
              {showAsCompleted && <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">CONCLUÍDA</span>}
