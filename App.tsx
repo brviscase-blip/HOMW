@@ -412,6 +412,15 @@ const App: React.FC = () => {
     const showAsCompleted = subTab === 'today' && dayState.status === TaskStatus.COMPLETED;
     const progressPercent = task.targetReps > 1 ? (dayState.currentReps / task.targetReps) * 100 : 0;
 
+    // Lógica Inteligente: apenas na guia 'HOJE'
+    const currentHour = new Date().getHours();
+    const isPastDate = viewDateStr < realTodayStr;
+    const isToday = viewDateStr === realTodayStr;
+    const isLateHour = task.timeWindow ? parseInt(task.timeWindow) < currentHour : false;
+    
+    // O sistema só marca como 'Missed' se estivermos na aba HOJE
+    const isMissed = subTab === 'today' && !showAsCompleted && (isPastDate || (isToday && isLateHour));
+
     const getTypeColor = () => {
       switch(task.type) {
         case TaskType.HABIT: return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400';
@@ -429,47 +438,65 @@ const App: React.FC = () => {
     return (
       <div 
         onContextMenu={handleContextMenu}
-        className={`group relative flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 border-transparent overflow-hidden ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}
+        className={`group relative flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 overflow-hidden 
+          ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 
+            isMissed ? 'bg-red-50/40 dark:bg-red-950/10 border-l-red-600' : 
+            'bg-white dark:bg-slate-950 border-l-transparent hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}
       >
         {subTab === 'today' && (
           <div className="flex flex-col items-center justify-center z-20">
             <button 
               onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task.id); }} 
               title={showAsCompleted ? "Clique para desfazer tudo" : "Clique para registrar progresso"}
-              className={`w-10 h-10 md:w-11 md:h-11 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}
+              className={`w-10 h-10 md:w-11 md:h-11 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden 
+                ${showAsCompleted ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 
+                  isMissed ? 'border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 hover:border-red-500' : 
+                  'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500'}`}
             >
               {!showAsCompleted && task.targetReps > 1 && progressPercent > 0 && (
                 <div 
-                  className="absolute bottom-0 left-0 w-full bg-emerald-500/40 dark:bg-emerald-400/60 transition-all duration-300 pointer-events-none" 
+                  className={`absolute bottom-0 left-0 w-full transition-all duration-300 pointer-events-none ${isMissed ? 'bg-red-500/20' : 'bg-emerald-500/40'}`} 
                   style={{ height: `${progressPercent}%` }}
                 />
               )}
               
               <div className="relative z-10">
-                {dayState.status === TaskStatus.COMPLETED ? <Icons.Check /> : <Icons.Plus />}
+                {showAsCompleted ? <Icons.Check /> : isMissed ? <div className="text-red-600 animate-pulse"><Icons.Plus /></div> : <Icons.Plus />}
               </div>
             </button>
           </div>
         )}
         <div className="flex-1 min-w-0 z-10">
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-             <h4 className={`text-sm md:text-base font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400 opacity-60' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
+             <h4 className={`text-sm md:text-base font-bold tracking-tight truncate transition-all 
+               ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400 opacity-60' : 
+                 isMissed ? 'text-red-900 dark:text-red-400' : 'text-slate-950 dark:text-white'}`}>
+               {task.title}
+             </h4>
              
-             {/* Selos de Identificação (TIPO e JANELA) */}
              <div className="flex items-center gap-1.5">
                <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
+               
                {task.timeWindow && (
-                 <span className="text-[7px] font-black px-2.5 py-0.5 tracking-[0.1em] uppercase shrink-0 bg-slate-950 dark:bg-white text-white dark:text-slate-950 border border-slate-950 dark:border-white shadow-[2px_2px_0px_rgba(0,0,0,0.1)]">
+                 <span className={`text-[7px] font-black px-2.5 py-0.5 tracking-[0.1em] uppercase shrink-0 border shadow-[2px_2px_0px_rgba(0,0,0,0.1)]
+                   ${isMissed ? 'bg-red-600 border-red-600 text-white' : 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white'}`}>
                    {task.timeWindow}:00H
                  </span>
                )}
+               
                {showAsCompleted && <span className="text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">CONCLUÍDA</span>}
+               {isMissed && (
+                 <span className="text-[7px] font-black bg-red-600 text-white px-2 py-0.5 tracking-[0.2em] uppercase shrink-0 animate-fade-in">
+                   {isPastDate ? 'FALHA DE REGISTRO' : 'CRONOGRAMA VIOLADO'}
+                 </span>
+               )}
              </div>
 
-             {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-400 dark:text-slate-500'}`}>PROGRESSO: {dayState.currentReps}/{task.targetReps}</span>}
+             {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : isMissed ? 'text-red-400 dark:text-red-900' : 'text-slate-400 dark:text-slate-500'}`}>PROGRESSO: {dayState.currentReps}/{task.targetReps}</span>}
           </div>
           <div className="flex items-center gap-5 mt-1 opacity-60">
-            <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : 'text-slate-400 dark:text-slate-500'}`}>
+            <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors 
+              ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : isMissed ? 'text-red-500 dark:text-red-800' : 'text-slate-400 dark:text-slate-500'}`}>
               {task.type === TaskType.TASK ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FILA DE OPERAÇÃO // FLUTUANTE') : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))}
             </span>
           </div>
