@@ -269,11 +269,9 @@ const App: React.FC = () => {
     let nextStatus = TaskStatus.TODO;
 
     if (currentDayState.status === TaskStatus.COMPLETED) {
-      // Se já está completo, o próximo clique reseta tudo (Undo total do dia)
       nextReps = 0;
       nextStatus = TaskStatus.TODO;
     } else {
-      // Se não está completo, incrementa até o alvo
       if (task.targetReps > 1) {
         nextReps = (currentDayState.currentReps || 0) + 1;
         if (nextReps >= task.targetReps) {
@@ -377,10 +375,10 @@ const App: React.FC = () => {
               title={showAsCompleted ? "Clique para desfazer tudo" : "Clique para registrar progresso"}
               className={`w-10 h-10 md:w-11 md:h-11 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden ${dayState.status === TaskStatus.COMPLETED ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'} hover:border-emerald-500 dark:hover:border-emerald-400 cursor-pointer`}
             >
-              {/* Progress Fill Layer (Inside the action box) */}
+              {/* Camada de Preenchimento de Progresso (Dentro da caixa de ação) */}
               {!showAsCompleted && task.targetReps > 1 && progressPercent > 0 && (
                 <div 
-                  className="absolute bottom-0 left-0 w-full bg-emerald-500/20 dark:bg-emerald-400/40 transition-all duration-300 pointer-events-none" 
+                  className="absolute bottom-0 left-0 w-full bg-emerald-500/40 dark:bg-emerald-400/60 transition-all duration-300 pointer-events-none" 
                   style={{ height: `${progressPercent}%` }}
                 />
               )}
