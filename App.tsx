@@ -176,7 +176,7 @@ const App: React.FC = () => {
       });
     }
 
-    // Ordenação básica por janela do dia
+    // Ordenação por janela do dia (tarefas sem janela ficam por último)
     return [...list].sort((a, b) => {
       const windowA = a.timeWindow || '99';
       const windowB = b.timeWindow || '99';
@@ -434,12 +434,19 @@ const App: React.FC = () => {
         )}
         <div className="flex-1 min-w-0 z-10">
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-             {task.timeWindow && (
-               <span className="text-[10px] font-black bg-slate-900 dark:bg-white text-white dark:text-slate-950 px-2 py-0.5 tracking-tighter shrink-0">{task.timeWindow}h</span>
-             )}
              <h4 className={`text-sm md:text-base font-bold tracking-tight truncate transition-all ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400 opacity-60' : 'text-slate-950 dark:text-white'}`}>{task.title}</h4>
-             {showAsCompleted && <span className="hidden md:inline-block text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">CONCLUÍDA</span>}
-             <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
+             
+             {/* Selos de Identificação (TIPO e JANELA) */}
+             <div className="flex items-center gap-1.5">
+               <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
+               {task.timeWindow && (
+                 <span className="text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 bg-slate-950 dark:bg-white text-white dark:text-slate-950 border border-slate-950 dark:border-white shadow-sm">
+                   {task.timeWindow}:00H
+                 </span>
+               )}
+               {showAsCompleted && <span className="text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">CONCLUÍDA</span>}
+             </div>
+
              {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : 'text-slate-400 dark:text-slate-500'}`}>PROGRESSO: {dayState.currentReps}/{task.targetReps}</span>}
           </div>
           <div className="flex items-center gap-5 mt-1 opacity-60">
