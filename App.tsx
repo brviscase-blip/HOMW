@@ -432,6 +432,8 @@ const App: React.FC = () => {
 
     const handleContextMenu = (e: React.MouseEvent) => {
       e.preventDefault();
+      // Bloqueio operacional: o menu de edição/exclusão só funciona na sub-guia CADASTRO
+      if (subTab !== 'registry') return;
       setContextMenu({ x: e.clientX, y: e.clientY, task });
     };
 
@@ -497,7 +499,17 @@ const App: React.FC = () => {
           <div className="flex items-center gap-5 mt-1 opacity-60">
             <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors 
               ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : isMissed ? 'text-red-500 dark:text-red-800' : 'text-slate-400 dark:text-slate-500'}`}>
-              {task.type === TaskType.TASK ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FILA DE OPERAÇÃO // FLUTUANTE') : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))}
+              {subTab === 'registry' ? (
+                // Se estiver na guia de cadastro, mostra apenas a definição, nunca o histórico de conclusão para TAREFAS
+                task.type === TaskType.TASK 
+                  ? 'TAREFA DE FLUXO ÚNICO // FLUTUANTE' 
+                  : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))
+              ) : (
+                // Lógica da guia HOJE: mostra histórico de conclusão para TAREFAS
+                task.type === TaskType.TASK 
+                  ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FILA DE OPERAÇÃO // FLUTUANTE') 
+                  : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))
+              )}
             </span>
           </div>
         </div>
