@@ -30,24 +30,40 @@ export interface Task {
   status: TaskStatus;
   category: string;
   dueDate: string;
-  days?: string[]; // Dias da semana para tarefas recorrentes
+  days?: string[];
   createdAt: string;
   icon: string;
   iconColor: string;
   targetReps: number;
   currentReps: number;
   type: TaskType;
-  history?: Record<string, TaskHistory>; // Mapeamento de data (YYYY-MM-DD) para estado
-  timeWindow?: string; // Janela horária (00 a 23)
+  history?: Record<string, TaskHistory>;
+  timeWindow?: string;
+}
+
+// Novas interfaces para Demandas
+export interface Area {
+  id: string;
+  name: string;
+  created_at: string;
+  demand_count?: number;
+}
+
+export interface Demand {
+  id: string;
+  area_id: string;
+  description: string;
+  status: 'PENDENTE' | 'CONCLUIDA';
+  created_at: string;
 }
 
 export interface Routine {
   id: string;
   title: string;
-  days: string[]; // ['Seg', 'Ter'...]
+  days: string[];
   time: string;
   category: string;
-  completedDates: string[]; // ISO Strings of days completed
+  completedDates: string[];
 }
 
 export interface AppState {

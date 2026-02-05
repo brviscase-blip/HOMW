@@ -3,8 +3,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Task, Priority, TaskStatus, TaskHistory, TaskType } from './types';
 import { Icons, CATEGORIES, DAYS_OF_WEEK } from './constants';
 import { supabase } from './supabaseClient';
+import DemandasManager from './DemandasManager';
 
-type Tab = 'tasks';
+type Tab = 'tasks' | 'demandas';
 type SubTab = 'today' | 'registry';
 type Theme = 'light' | 'dark';
 
@@ -15,7 +16,6 @@ const formatLocalDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-// Mapeamento DB -> UI
 const mapTaskFromDB = (db: any): Task => ({
   id: db.id,
   title: db.title,
@@ -95,7 +95,6 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  // Sincronização de estado de tela cheia
   useEffect(() => {
     const handleFullScreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -104,7 +103,6 @@ const App: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
   }, []);
 
-  // Listener para tecla Esc (Desktop)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -118,20 +116,16 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Listener para botão Voltar (Mobile)
   useEffect(() => {
     if (isModalOpen || isDeleteModalOpen) {
       window.history.pushState({ modalOpen: true }, '');
     }
-
     const handlePopState = () => {
       setIsModalOpen(false);
       setIsDeleteModalOpen(false);
       setIsCalendarOpen(false);
     };
-
     window.addEventListener('popstate', handlePopState);
-    
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
@@ -165,15 +159,12 @@ const App: React.FC = () => {
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0);
     const days: (Date | null)[] = [];
-    
     for (let i = 0; i < firstDayOfMonth.getDay(); i++) {
       days.push(null);
     }
-    
     for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
       days.push(new Date(year, month, d));
     }
-    
     return days;
   }, [viewDate]);
 
@@ -182,22 +173,17 @@ const App: React.FC = () => {
     if (subTab === 'today') {
       list = tasks.filter(t => {
         const dayState = (t.history && t.history[viewDateStr]) || null;
-        
         if (t.type === TaskType.TASK) {
           if (dayState && dayState.status === TaskStatus.COMPLETED) return true;
           return t.status === TaskStatus.TODO;
         }
-
         const isOnOrAfterStartDate = viewDateStr >= t.dueDate;
         if (!isOnOrAfterStartDate) return false;
-
         const isTargetDate = t.dueDate === viewDateStr;
         const isTargetDay = t.days && t.days.includes(viewDayName);
-        
         return isTargetDate || isTargetDay;
       });
     }
-
     return [...list].sort((a, b) => {
       const windowA = a.timeWindow || '99';
       const windowB = b.timeWindow || '99';
@@ -205,7 +191,6 @@ const App: React.FC = () => {
     });
   }, [tasks, subTab, viewDateStr, viewDayName]);
 
-  // Itens para a guia CADASTRO: Apenas Hábito e Cotidiano
   const registryTasks = useMemo(() => {
     return tasks.filter(t => t.type !== TaskType.TASK);
   }, [tasks]);
@@ -232,7 +217,6 @@ const App: React.FC = () => {
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickTaskTitle.trim()) return;
-
     const newTaskData = {
       title: quickTaskTitle,
       description: '',
@@ -248,9 +232,7 @@ const App: React.FC = () => {
       history: {},
       time_window: null
     };
-
     const { data, error } = await supabase.from('tasks').insert([newTaskData]).select();
-    
     if (error) {
       console.error('Erro ao adicionar rápida:', error);
     } else if (data) {
@@ -273,7 +255,6 @@ const App: React.FC = () => {
   const handleSubmitTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
-    
     const baseData = {
       title,
       due_date: dueDate,
@@ -282,14 +263,12 @@ const App: React.FC = () => {
       type: taskType,
       time_window: timeWindow
     };
-
     if (editingTaskId) {
       const { data, error } = await supabase
         .from('tasks')
         .update(baseData)
         .eq('id', editingTaskId)
         .select();
-
       if (error) {
         console.error('Erro ao atualizar:', error);
       } else if (data) {
@@ -307,16 +286,13 @@ const App: React.FC = () => {
         current_reps: 0,
         history: {}
       };
-
       const { data, error } = await supabase.from('tasks').insert([newTaskData]).select();
-      
       if (error) {
         console.error('Erro ao criar:', error);
       } else if (data) {
         setTasks(prev => [mapTaskFromDB(data[0]), ...prev]);
       }
     }
-
     setIsModalOpen(false);
     setIsCalendarOpen(false);
     setEditingTaskId(null);
@@ -328,16 +304,12 @@ const App: React.FC = () => {
 
   const toggleTaskStatus = async (id: string) => {
     if (subTab !== 'today') return;
-    
     const task = tasks.find(t => t.id === id);
     if (!task) return;
-
     const history = task.history || {};
     const currentDayState: TaskHistory = history[viewDateStr] || { currentReps: 0, status: TaskStatus.TODO };
-    
     let nextReps = 0;
     let nextStatus = TaskStatus.TODO;
-
     if (currentDayState.status === TaskStatus.COMPLETED) {
       nextReps = 0;
       nextStatus = TaskStatus.TODO;
@@ -355,16 +327,13 @@ const App: React.FC = () => {
         nextStatus = TaskStatus.COMPLETED;
       }
     }
-
     const globalStatus = (task.type === TaskType.TASK) ? nextStatus : task.status;
     const newHistory = { ...history, [viewDateStr]: { currentReps: nextReps, status: nextStatus } };
-
     const { data, error } = await supabase
       .from('tasks')
       .update({ status: globalStatus, history: newHistory })
       .eq('id', id)
       .select();
-
     if (error) {
       console.error('Erro ao alternar status:', error);
     } else if (data) {
@@ -375,7 +344,6 @@ const App: React.FC = () => {
   const confirmDeleteTask = async () => {
     if (taskToDelete) {
       const { error } = await supabase.from('tasks').delete().eq('id', taskToDelete.id);
-      
       if (error) {
         console.error('Erro ao deletar:', error);
       } else {
@@ -416,16 +384,11 @@ const App: React.FC = () => {
     const dayState = (task.history && task.history[viewDateStr]) || { currentReps: 0, status: TaskStatus.TODO };
     const showAsCompleted = subTab === 'today' && dayState.status === TaskStatus.COMPLETED;
     const progressPercent = task.targetReps > 1 ? (dayState.currentReps / task.targetReps) * 100 : 0;
-
-    // Lógica Inteligente: apenas na guia 'HOJE'
     const currentHour = new Date().getHours();
     const isPastDate = viewDateStr < realTodayStr;
     const isToday = viewDateStr === realTodayStr;
     const isLateHour = task.timeWindow ? parseInt(task.timeWindow) < currentHour : false;
-    
-    // O sistema só marca como 'Missed' se estivermos na aba HOJE
     const isMissed = subTab === 'today' && !showAsCompleted && (isPastDate || (isToday && isLateHour));
-
     const getTypeColor = () => {
       switch(task.type) {
         case TaskType.HABIT: return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400';
@@ -434,10 +397,8 @@ const App: React.FC = () => {
         default: return '';
       }
     };
-
     const handleContextMenu = (e: React.MouseEvent) => {
       e.preventDefault();
-      // Bloqueio operacional: o menu de edição/exclusão só funciona na sub-guia CADASTRO
       if (subTab !== 'registry') return;
       setContextMenu({ x: e.clientX, y: e.clientY, task });
     };
@@ -454,7 +415,6 @@ const App: React.FC = () => {
           <div className="flex flex-col items-center justify-center z-20 shrink-0">
             <button 
               onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task.id); }} 
-              title={showAsCompleted ? "Clique para desfazer tudo" : "Clique para registrar progresso"}
               className={`w-10 h-10 md:w-11 md:h-11 shrink-0 border-2 flex flex-col items-center justify-center transition-all relative overflow-hidden 
                 ${showAsCompleted ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 
                   isMissed ? 'border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 hover:border-red-500' : 
@@ -466,7 +426,6 @@ const App: React.FC = () => {
                   style={{ height: `${progressPercent}%` }}
                 />
               )}
-              
               <div className="relative z-10">
                 {showAsCompleted ? <Icons.Check /> : isMissed ? <div className="text-red-600 animate-pulse"><Icons.Plus /></div> : <Icons.Plus />}
               </div>
@@ -474,24 +433,19 @@ const App: React.FC = () => {
           </div>
         )}
         <div className="flex-1 min-w-0 z-10 flex flex-col gap-2">
-          {/* Linha do Título: Padronizada para nunca quebrar o layout vertical */}
           <h4 className={`text-sm md:text-base font-bold tracking-tight truncate transition-all leading-tight
             ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400 opacity-60' : 
               isMissed ? 'text-red-900 dark:text-red-400' : 'text-slate-950 dark:text-white'}`}>
             {task.title}
           </h4>
-          
-          {/* Linha das Tags: Agrupamento lógico e estável */}
           <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
              <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
-             
              {task.timeWindow && (
                <span className={`text-[7px] font-black px-2.5 py-0.5 tracking-[0.1em] uppercase shrink-0 border shadow-[1px_1px_0px_rgba(0,0,0,0.1)]
                  ${isMissed ? 'bg-red-600 border-red-600 text-white' : 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white'}`}>
                  {task.timeWindow}:00H
                </span>
              )}
-             
              {showAsCompleted && <span className="text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">CONCLUÍDA</span>}
              {isMissed && (
                <span className="text-[7px] font-black bg-red-600 text-white px-2 py-0.5 tracking-[0.2em] uppercase shrink-0 animate-fade-in">
@@ -500,8 +454,6 @@ const App: React.FC = () => {
              )}
              {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : isMissed ? 'text-red-400 dark:text-red-900' : 'text-slate-400 dark:text-slate-500'}`}>PROGRESSO: {dayState.currentReps}/{task.targetReps}</span>}
           </div>
-
-          {/* Linha de Metadados: Texto secundário de rodapé */}
           <div className="flex items-center gap-5 opacity-60">
             <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors 
               ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : isMissed ? 'text-red-500 dark:text-red-800' : 'text-slate-400 dark:text-slate-500'}`}>
@@ -530,29 +482,17 @@ const App: React.FC = () => {
             <h1 className="text-[10px] md:text-sm font-roboto font-bold tracking-[0.2em] text-white uppercase">HOME</h1>
           </div>
           <div className="md:hidden flex items-center gap-3">
-            <button onClick={toggleFullScreen} title="Tela Cheia" className="flex items-center justify-center w-8 h-8 text-slate-400">
+            <button onClick={toggleFullScreen} className="flex items-center justify-center w-8 h-8 text-slate-400">
               {isFullscreen ? <Icons.Minimize /> : <Icons.Expand />}
             </button>
-            <button onClick={toggleTheme} title="Tema" className="flex items-center justify-center w-8 h-8 text-slate-400">
+            <button onClick={toggleTheme} className="flex items-center justify-center w-8 h-8 text-slate-400">
               {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
             </button>
           </div>
         </div>
         <nav className="flex flex-row md:flex-col gap-1 md:gap-2 flex-1 md:overflow-visible overflow-x-auto scrollbar-hide">
-          <button onClick={() => setActiveTab('tasks')} className={`flex items-center gap-3 px-3 md:px-5 py-2 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap bg-slate-900 text-white md:border-l-4 border-b-2 md:border-b-0 border-white`}><Icons.List /> TAREFAS</button>
-          <div className="hidden md:block mt-12 px-2">
-            <p className="text-[8px] font-bold text-slate-600 uppercase tracking-[0.4em] mb-6">Métricas Gerais</p>
-            <div className="space-y-8">
-               <div className="border-l border-slate-800 pl-4">
-                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Pendentes</p>
-                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.filter(t => t.status === TaskStatus.TODO).length}</p>
-               </div>
-               <div className="border-l border-slate-800 pl-4">
-                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Concluídas</p>
-                 <p className="text-3xl font-bold text-white tracking-tighter">{tasks.filter(t => t.status === TaskStatus.COMPLETED).length}</p>
-               </div>
-            </div>
-          </div>
+          <button onClick={() => setActiveTab('tasks')} className={`flex items-center gap-3 px-3 md:px-5 py-2 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap md:border-l-4 border-b-2 md:border-b-0 ${activeTab === 'tasks' ? 'bg-slate-900 text-white border-white' : 'text-slate-400 border-transparent hover:text-white'}`}><Icons.List /> TAREFAS</button>
+          <button onClick={() => setActiveTab('demandas')} className={`flex items-center gap-3 px-3 md:px-5 py-2 md:py-4 font-bold tracking-widest uppercase text-[9px] md:text-[10px] transition-all whitespace-nowrap md:border-l-4 border-b-2 md:border-b-0 ${activeTab === 'demandas' ? 'bg-slate-900 text-white border-white' : 'text-slate-400 border-transparent hover:text-white'}`}><Icons.Target /> DEMANDAS</button>
         </nav>
         <div className="hidden md:flex flex-col gap-1 mt-auto pt-8 border-t border-slate-900">
           <button onClick={toggleFullScreen} className="flex items-center gap-3 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2">
@@ -567,73 +507,81 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col overflow-y-auto bg-slate-50/20 dark:bg-slate-900/50">
         <header className="px-4 py-4 md:p-8 lg:p-10 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col md:flex-row items-start md:items-end justify-between sticky top-0 z-20 gap-2 md:gap-0 transition-colors">
           <div className="animate-slide-down">
-            <h2 className="text-lg md:text-3xl font-roboto font-bold text-slate-950 dark:text-white tracking-tight uppercase leading-none">Gestão de Tarefas</h2>
+            <h2 className="text-lg md:text-3xl font-roboto font-bold text-slate-950 dark:text-white tracking-tight uppercase leading-none">
+              {activeTab === 'tasks' ? 'Gestão de Tarefas' : 'Gestão de Demandas'}
+            </h2>
             <p className="text-slate-400 mt-1 md:mt-2 font-bold text-[8px] md:text-[10px] uppercase tracking-[0.3em]">BASE DE DADOS // {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</p>
           </div>
         </header>
 
         <div className="flex-1 flex flex-col p-3 md:p-6 lg:p-10 gap-4 md:gap-6">
-          <div className="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
-            <button onClick={() => setSubTab('today')} className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'today' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Hoje</button>
-            <button onClick={() => setSubTab('registry')} className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'registry' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Cadastro</button>
-          </div>
+          {activeTab === 'tasks' ? (
+            <>
+              <div className="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
+                <button onClick={() => setSubTab('today')} className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'today' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Hoje</button>
+                <button onClick={() => setSubTab('registry')} className={`px-4 md:px-8 py-3 md:py-4 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 ${subTab === 'registry' ? 'border-slate-950 dark:border-white text-slate-950 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Cadastro</button>
+              </div>
 
-          <section className="animate-fade-in flex-1 flex flex-col">
-            {isLoading ? (
-               <div className="flex-1 flex items-center justify-center">
-                 <div className="w-8 h-8 border-2 border-slate-950 dark:border-white border-t-transparent animate-spin"></div>
-               </div>
-            ) : subTab === 'today' ? (
-              <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
-                <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10 gap-4">
-                  <div className="flex flex-col md:flex-row md:items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => navigateDay(-1)} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]">◄</button>
-                      <button onClick={resetToToday} className={`px-3 h-9 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 transition-all font-black text-[9px] tracking-widest uppercase ${viewDateStr === realTodayStr ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-white dark:bg-slate-950 text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white'}`}>Hoje</button>
-                      <button onClick={() => navigateDay(1)} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]">►</button>
+              <section className="animate-fade-in flex-1 flex flex-col">
+                {isLoading ? (
+                   <div className="flex-1 flex items-center justify-center">
+                     <div className="w-8 h-8 border-2 border-slate-950 dark:border-white border-t-transparent animate-spin"></div>
+                   </div>
+                ) : subTab === 'today' ? (
+                  <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
+                    <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10 gap-4">
+                      <div className="flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => navigateDay(-1)} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]">◄</button>
+                          <button onClick={resetToToday} className={`px-3 h-9 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 transition-all font-black text-[9px] tracking-widest uppercase ${viewDateStr === realTodayStr ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-white dark:bg-slate-950 text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white'}`}>Hoje</button>
+                          <button onClick={() => navigateDay(1)} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]">►</button>
+                        </div>
+                        <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2 whitespace-nowrap"><span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> Operação: {viewDateStr === realTodayStr ? 'HOJE' : selectedViewDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
+                      </div>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} Registros</span>
                     </div>
-                    <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2 whitespace-nowrap"><span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> Operação: {viewDateStr === realTodayStr ? 'HOJE' : selectedViewDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
+
+                    <form onSubmit={handleQuickAdd} className="px-4 py-3 md:px-6 md:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
+                      <div className="w-8 h-8 flex items-center justify-center text-cyan-500"><Icons.Plus /></div>
+                      <input 
+                        type="text" 
+                        value={quickTaskTitle}
+                        onChange={(e) => setQuickTaskTitle(e.target.value)}
+                        placeholder="Adicionar tarefa rápida para flutuar..."
+                        className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700"
+                      />
+                      {quickTaskTitle && (
+                        <button type="submit" className="text-[9px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-widest animate-fade-in">ENTER PARA SALVAR</button>
+                      )}
+                    </form>
+
+                    <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
+                      {filteredTasks.length === 0 ? (
+                        <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
+                          <div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4"><Icons.Check /></div>
+                          <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro para este ciclo.</p>
+                        </div>
+                      ) : (filteredTasks.map(task => <TaskCard key={task.id} task={task} />))}
+                    </div>
                   </div>
-                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} Registros</span>
-                </div>
-
-                <form onSubmit={handleQuickAdd} className="px-4 py-3 md:px-6 md:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
-                  <div className="w-8 h-8 flex items-center justify-center text-cyan-500"><Icons.Plus /></div>
-                  <input 
-                    type="text" 
-                    value={quickTaskTitle}
-                    onChange={(e) => setQuickTaskTitle(e.target.value)}
-                    placeholder="Adicionar tarefa rápida para flutuar..."
-                    className="flex-1 bg-transparent border-none outline-none text-xs md:text-sm font-bold text-slate-700 dark:text-slate-300 placeholder:text-slate-300 dark:placeholder:text-slate-700"
-                  />
-                  {quickTaskTitle && (
-                    <button type="submit" className="text-[9px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-widest animate-fade-in">ENTER PARA SALVAR</button>
-                  )}
-                </form>
-
-                <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
-                  {filteredTasks.length === 0 ? (
-                    <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40">
-                      <div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4"><Icons.Check /></div>
-                      <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro para este ciclo.</p>
+                ) : (
+                  <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
+                    <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 gap-3">
+                      <div className="flex flex-col"><h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">Histórico Completo</h3><span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{registryTasks.length} Protocolos</span></div>
+                      <button onClick={handleOpenNewTask} className="flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-4 py-2.5 md:px-6 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"><Icons.Plus /> Novo Registro</button>
                     </div>
-                  ) : (filteredTasks.map(task => <TaskCard key={task.id} task={task} />))}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
-                <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 gap-3">
-                  <div className="flex flex-col"><h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">Histórico Completo</h3><span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{registryTasks.length} Protocolos</span></div>
-                  <button onClick={handleOpenNewTask} className="flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-4 py-2.5 md:px-6 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"><Icons.Plus /> Novo Registro</button>
-                </div>
-                <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
-                  {registryTasks.length === 0 ? (
-                    <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40"><div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4"><Icons.List /></div><p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado.</p></div>
-                  ) : (registryTasks.map(task => <TaskCard key={task.id} task={task} />))}
-                </div>
-              </div>
-            )}
-          </section>
+                    <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
+                      {registryTasks.length === 0 ? (
+                        <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40"><div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4"><Icons.List /></div><p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado.</p></div>
+                      ) : (registryTasks.map(task => <TaskCard key={task.id} task={task} />))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            </>
+          ) : (
+            <DemandasManager />
+          )}
         </div>
 
         <footer className="p-4 md:p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors">
@@ -641,30 +589,18 @@ const App: React.FC = () => {
         </footer>
       </main>
 
-      {/* Menu de Contexto */}
       {contextMenu && (
         <div 
           className="fixed z-[200] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-xl py-2 min-w-[160px] animate-fade-in"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button 
-            onClick={() => { handleOpenEditTask(contextMenu.task); setContextMenu(null); }}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
-          >
-            <div className="text-slate-400"><Icons.Edit /></div> EDITAR
-          </button>
+          <button onClick={() => { handleOpenEditTask(contextMenu.task); setContextMenu(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"><div className="text-slate-400"><Icons.Edit /></div> EDITAR</button>
           <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1 mx-2" />
-          <button 
-            onClick={() => { setTaskToDelete(contextMenu.task); setIsDeleteModalOpen(true); setContextMenu(null); }}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-          >
-            <div className="text-red-400"><Icons.Trash /></div> APAGAR
-          </button>
+          <button onClick={() => { setTaskToDelete(contextMenu.task); setIsDeleteModalOpen(true); setContextMenu(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"><div className="text-red-400"><Icons.Trash /></div> APAGAR</button>
         </div>
       )}
 
-      {/* Modais */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-6 animate-fade-in overflow-y-auto bg-slate-950/25 dark:bg-black/60 backdrop-blur-[6px]">
           <div className="absolute inset-0" onClick={() => setIsModalOpen(false)}></div>
@@ -685,23 +621,14 @@ const App: React.FC = () => {
                   <button type="button" onClick={() => setTaskType(TaskType.DAILY)} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${taskType === TaskType.DAILY ? 'bg-amber-600 border-amber-600 text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}>COTIDIANO</button>
                 </div>
               </div>
-              
               <div className="space-y-4 md:space-y-5">
                 <SectionLabel number="03" text="Janela do Dia" />
                 <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                   {HOURS.map(hour => (
-                    <button 
-                      key={hour} 
-                      type="button" 
-                      onClick={() => setTimeWindow(timeWindow === hour ? null : hour)} 
-                      className={`py-2 text-[10px] font-bold border transition-all ${timeWindow === hour ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-white dark:bg-slate-950 text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600'}`}
-                    >
-                      {hour}h
-                    </button>
+                    <button key={hour} type="button" onClick={() => setTimeWindow(timeWindow === hour ? null : hour)} className={`py-2 text-[10px] font-bold border transition-all ${timeWindow === hour ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-white dark:bg-slate-950 text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600'}`}>{hour}h</button>
                   ))}
                 </div>
               </div>
-
               {taskType !== TaskType.TASK && (
                 <>
                   <div className="space-y-4 md:space-y-5">
@@ -729,10 +656,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 animate-fade-in bg-slate-950/40 dark:bg-black/80 backdrop-blur-[4px]">
           <div className="absolute inset-0" onClick={() => setIsDeleteModalOpen(false)}></div>
           <div className="relative w-full max-w-[400px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 md:p-8 animate-slide-up">
-            <div className="mb-6">
-              <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600 leading-tight">Confirmar Exclusão?</h3>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Esta ação não poderá ser desfeita no sistema.</p>
-            </div>
+            <div className="mb-6"><h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-red-600 leading-tight">Confirmar Exclusão?</h3><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Esta ação não poderá ser desfeita no sistema.</p></div>
             <div className="flex flex-col gap-3">
               <button onClick={confirmDeleteTask} className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-[0.3em] transition-all active:scale-[0.98]">Sim, Cancelar Registro</button>
               <button onClick={() => setIsDeleteModalOpen(false)} className="w-full h-12 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-950 dark:text-white font-black text-[10px] uppercase tracking-[0.3em] hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-[0.98]">Não, Manter Protocolo</button>
@@ -740,6 +664,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
       <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slide-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
