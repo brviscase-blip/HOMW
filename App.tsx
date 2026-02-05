@@ -445,13 +445,13 @@ const App: React.FC = () => {
     return (
       <div 
         onContextMenu={handleContextMenu}
-        className={`group relative flex items-start md:items-center gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 overflow-hidden 
+        className={`group relative flex items-start gap-4 md:gap-6 p-4 md:p-6 transition-all border-l-4 overflow-hidden 
           ${showAsCompleted ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-l-emerald-500' : 
             isMissed ? 'bg-red-50/40 dark:bg-red-950/10 border-l-red-600' : 
             'bg-white dark:bg-slate-950 border-l-transparent hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-l-slate-950 dark:hover:border-l-white'}`}
       >
         {subTab === 'today' && (
-          <div className="flex flex-col items-center justify-center z-20">
+          <div className="flex flex-col items-center justify-center z-20 shrink-0">
             <button 
               onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task.id); }} 
               title={showAsCompleted ? "Clique para desfazer tudo" : "Clique para registrar progresso"}
@@ -473,44 +473,43 @@ const App: React.FC = () => {
             </button>
           </div>
         )}
-        <div className="flex-1 min-w-0 z-10">
-          <div className="flex flex-wrap items-center gap-2 md:gap-3">
-             <h4 className={`text-sm md:text-base font-bold tracking-tight truncate transition-all 
-               ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400 opacity-60' : 
-                 isMissed ? 'text-red-900 dark:text-red-400' : 'text-slate-950 dark:text-white'}`}>
-               {task.title}
-             </h4>
+        <div className="flex-1 min-w-0 z-10 flex flex-col gap-2">
+          {/* Linha do Título: Padronizada para nunca quebrar o layout vertical */}
+          <h4 className={`text-sm md:text-base font-bold tracking-tight truncate transition-all leading-tight
+            ${showAsCompleted ? 'line-through text-emerald-800 dark:text-emerald-400 opacity-60' : 
+              isMissed ? 'text-red-900 dark:text-red-400' : 'text-slate-950 dark:text-white'}`}>
+            {task.title}
+          </h4>
+          
+          {/* Linha das Tags: Agrupamento lógico e estável */}
+          <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+             <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
              
-             <div className="flex items-center gap-1.5">
-               <span className={`text-[7px] font-black px-2 py-0.5 tracking-[0.1em] uppercase shrink-0 ${getTypeColor()}`}>{task.type}</span>
-               
-               {task.timeWindow && (
-                 <span className={`text-[7px] font-black px-2.5 py-0.5 tracking-[0.1em] uppercase shrink-0 border shadow-[2px_2px_0px_rgba(0,0,0,0.1)]
-                   ${isMissed ? 'bg-red-600 border-red-600 text-white' : 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white'}`}>
-                   {task.timeWindow}:00H
-                 </span>
-               )}
-               
-               {showAsCompleted && <span className="text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">CONCLUÍDA</span>}
-               {isMissed && (
-                 <span className="text-[7px] font-black bg-red-600 text-white px-2 py-0.5 tracking-[0.2em] uppercase shrink-0 animate-fade-in">
-                   {isPastDate ? 'FALHA DE REGISTRO' : 'CRONOGRAMA VIOLADO'}
-                 </span>
-               )}
-             </div>
-
+             {task.timeWindow && (
+               <span className={`text-[7px] font-black px-2.5 py-0.5 tracking-[0.1em] uppercase shrink-0 border shadow-[1px_1px_0px_rgba(0,0,0,0.1)]
+                 ${isMissed ? 'bg-red-600 border-red-600 text-white' : 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white'}`}>
+                 {task.timeWindow}:00H
+               </span>
+             )}
+             
+             {showAsCompleted && <span className="text-[7px] font-black bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 tracking-[0.2em] uppercase shrink-0">CONCLUÍDA</span>}
+             {isMissed && (
+               <span className="text-[7px] font-black bg-red-600 text-white px-2 py-0.5 tracking-[0.2em] uppercase shrink-0 animate-fade-in">
+                 {isPastDate ? 'FALHA DE REGISTRO' : 'CRONOGRAMA VIOLADO'}
+               </span>
+             )}
              {task.targetReps > 1 && <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest shrink-0 ${showAsCompleted ? 'text-emerald-300 dark:text-emerald-700' : isMissed ? 'text-red-400 dark:text-red-900' : 'text-slate-400 dark:text-slate-500'}`}>PROGRESSO: {dayState.currentReps}/{task.targetReps}</span>}
           </div>
-          <div className="flex items-center gap-5 mt-1 opacity-60">
+
+          {/* Linha de Metadados: Texto secundário de rodapé */}
+          <div className="flex items-center gap-5 opacity-60">
             <span className={`text-[8px] md:text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap transition-colors 
               ${showAsCompleted ? 'text-emerald-400 dark:text-emerald-800' : isMissed ? 'text-red-500 dark:text-red-800' : 'text-slate-400 dark:text-slate-500'}`}>
               {subTab === 'registry' ? (
-                // Se estiver na guia de cadastro, mostra apenas a definição, nunca o histórico de conclusão para TAREFAS
                 task.type === TaskType.TASK 
                   ? 'TAREFA DE FLUXO ÚNICO // FLUTUANTE' 
                   : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))
               ) : (
-                // Lógica da guia HOJE: mostra histórico de conclusão para TAREFAS
                 task.type === TaskType.TASK 
                   ? (task.status === TaskStatus.COMPLETED ? `CONCLUÍDO EM: ${viewDateStr}` : 'FILA DE OPERAÇÃO // FLUTUANTE') 
                   : (task.days ? `ROTINA: ${task.days.join(', ')}` : new Date(task.dueDate + 'T00:00:00').toLocaleDateString('pt-BR'))
