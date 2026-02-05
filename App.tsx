@@ -52,6 +52,7 @@ const App: React.FC = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [showDebugInManager, setShowDebugInManager] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, task: Task } | null>(null);
 
@@ -117,21 +118,6 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isModalOpen || isDeleteModalOpen) {
-      window.history.pushState({ modalOpen: true }, '');
-    }
-    const handlePopState = () => {
-      setIsModalOpen(false);
-      setIsDeleteModalOpen(false);
-      setIsCalendarOpen(false);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isModalOpen, isDeleteModalOpen]);
-
-  useEffect(() => {
     const handleGlobalClick = () => setContextMenu(null);
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
@@ -169,27 +155,33 @@ const App: React.FC = () => {
   }, [viewDate]);
 
   const filteredTasks = useMemo(() => {
-    let list = tasks;
-    if (subTab === 'today') {
-      list = tasks.filter(t => {
-        const dayState = (t.history && t.history[viewDateStr]) || null;
-        if (t.type === TaskType.TASK) {
-          if (dayState && dayState.status === TaskStatus.COMPLETED) return true;
-          return t.status === TaskStatus.TODO;
-        }
-        const isOnOrAfterStartDate = viewDateStr >= t.dueDate;
-        if (!isOnOrAfterStartDate) return false;
-        const isTargetDate = t.dueDate === viewDateStr;
-        const isTargetDay = t.days && t.days.includes(viewDayName);
-        return isTargetDate || isTargetDay;
-      });
-    }
+    let list = tasks.filter(t => {
+      const dayState = (t.history && t.history[viewDateStr]) || null;
+      if (t.type === TaskType.TASK) {
+        if (dayState && dayState.status === TaskStatus.COMPLETED) return true;
+        return t.status === TaskStatus.TODO;
+      }
+      const isOnOrAfterStartDate = viewDateStr >= t.dueDate;
+      if (!isOnOrAfterStartDate) return false;
+      const isTargetDate = t.dueDate === viewDateStr;
+      const isTargetDay = t.days && t.days.includes(viewDayName);
+      return isTargetDate || isTargetDay;
+    });
     return [...list].sort((a, b) => {
       const windowA = a.timeWindow || '99';
       const windowB = b.timeWindow || '99';
       return windowA.localeCompare(windowB);
     });
-  }, [tasks, subTab, viewDateStr, viewDayName]);
+  }, [tasks, viewDateStr, viewDayName]);
+
+  const dailyProgress = useMemo(() => {
+    if (filteredTasks.length === 0) return 0;
+    const completedCount = filteredTasks.filter(t => {
+      const dayState = (t.history && t.history[viewDateStr]);
+      return dayState?.status === TaskStatus.COMPLETED;
+    }).length;
+    return Math.round((completedCount / filteredTasks.length) * 100);
+  }, [filteredTasks, viewDateStr]);
 
   const registryTasks = useMemo(() => {
     return tasks.filter(t => t.type !== TaskType.TASK);
@@ -303,7 +295,6 @@ const App: React.FC = () => {
   };
 
   const toggleTaskStatus = async (id: string) => {
-    if (subTab !== 'today') return;
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const history = task.history || {};
@@ -530,13 +521,29 @@ const App: React.FC = () => {
                 ) : subTab === 'today' ? (
                   <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
                     <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-emerald-50/20 dark:bg-emerald-950/10 gap-4">
-                      <div className="flex flex-col md:flex-row md:items-center gap-4">
+                      <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1">
                         <div className="flex items-center gap-1">
                           <button onClick={() => navigateDay(-1)} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]">◄</button>
                           <button onClick={resetToToday} className={`px-3 h-9 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 transition-all font-black text-[9px] tracking-widest uppercase ${viewDateStr === realTodayStr ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white' : 'bg-white dark:bg-slate-950 text-slate-400 dark:text-slate-600 hover:text-slate-950 dark:hover:text-white'}`}>Hoje</button>
                           <button onClick={() => navigateDay(1)} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-950 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition-all font-black text-[10px]">►</button>
                         </div>
-                        <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2 whitespace-nowrap"><span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> Operação: {viewDateStr === realTodayStr ? 'HOJE' : selectedViewDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
+                        <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-5 flex-1">
+                          <h3 className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-[0.3em] uppercase flex items-center gap-2 whitespace-nowrap"><span className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500"></span> Operação: {viewDateStr === realTodayStr ? 'HOJE' : selectedViewDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</h3>
+                          
+                          {/* Daily Progress Bar */}
+                          <div className="flex-1 max-w-xs flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between text-[7px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-widest">
+                              <span>Progresso Operacional</span>
+                              <span>{dailyProgress}%</span>
+                            </div>
+                            <div className="h-1.5 bg-emerald-100 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-800/30 overflow-hidden">
+                              <div 
+                                className="h-full bg-emerald-500 transition-all duration-700 ease-out shadow-[0_0_8px_rgba(16,185,129,0.4)]" 
+                                style={{ width: `${dailyProgress}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} Registros</span>
                     </div>
@@ -580,12 +587,17 @@ const App: React.FC = () => {
               </section>
             </>
           ) : (
-            <DemandasManager />
+            <DemandasManager showDebugToggle={showDebugInManager} onToggleDebug={() => setShowDebugInManager(!showDebugInManager)} />
           )}
         </div>
 
         <footer className="p-4 md:p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors">
-          <p className="text-[7px] md:text-[8px] font-bold text-slate-200 dark:text-slate-800 uppercase tracking-[0.2em]">HOME // Protocol v2.5</p>
+          <button 
+            onClick={() => setShowDebugInManager(!showDebugInManager)}
+            className="text-[7px] md:text-[8px] font-bold text-slate-200 dark:text-slate-800 uppercase tracking-[0.2em] hover:text-slate-400 transition-colors"
+          >
+            HOME // Protocol v2.5
+          </button>
         </footer>
       </main>
 

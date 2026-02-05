@@ -1,45 +1,57 @@
 
--- Script de configuração consolidado da base de dados no Supabase
+-- SCRIPT DE REPARAÇÃO DEFINITIVO V3 - FOCO NO ERRO 23502
+-- Execute este bloco completo no SQL Editor do Supabase
 
--- 1. Tabela de Tarefas, Hábitos e Cotidiano
--- Gerencia o fluxo operacional diário e o histórico de execuções
-CREATE TABLE IF NOT EXISTS tasks (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  priority TEXT DEFAULT 'Média',
-  status TEXT DEFAULT 'Pendente',
-  category TEXT,
-  due_date DATE DEFAULT CURRENT_DATE,
-  days JSONB,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  icon TEXT DEFAULT 'List',
-  icon_color TEXT DEFAULT '#0f172a',
-  target_reps INTEGER DEFAULT 1,
-  current_reps INTEGER DEFAULT 0,
-  type TEXT NOT NULL, -- 'HABITO', 'COTIDIANO' ou 'TAREFA'
-  history JSONB DEFAULT '{}',
-  time_window TEXT -- Janela de horário (ex: '05', '14')
-);
+-- 1. Garante que a coluna 'description' não trave o sistema (Erro 23502)
+-- Primeiro criamos se não existir, depois removemos a restrição de NOT NULL
+DO $$ 
+BEGIN 
+    BEGIN
+        ALTER TABLE demands ADD COLUMN description TEXT DEFAULT '';
+    EXCEPTION WHEN duplicate_column THEN 
+        ALTER TABLE demands ALTER COLUMN description DROP NOT NULL;
+        ALTER TABLE demands ALTER COLUMN description SET DEFAULT '';
+    END;
+END $$;
 
--- 2. Tabela de Áreas de Vida/Gestão
--- Agrupadores para a nova guia de Demandas (Ex: Pessoal, Trabalho, Empresa)
-CREATE TABLE IF NOT EXISTS areas (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- 2. Garante as outras colunas essenciais
+DO $$ 
+BEGIN 
+    -- Título
+    BEGIN
+        ALTER TABLE demands ADD COLUMN title TEXT;
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+    
+    -- Área
+    BEGIN
+        ALTER TABLE demands ADD COLUMN area_id UUID REFERENCES areas(id);
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
 
--- 3. Tabela de Demandas (Itens de Gestão por Área)
--- Itens diretos e objetivos vinculados a uma área específica
-CREATE TABLE IF NOT EXISTS demands (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  area_id UUID REFERENCES areas(id) ON DELETE CASCADE,
-  description TEXT NOT NULL,
-  status TEXT DEFAULT 'PENDENTE', -- 'PENDENTE' ou 'CONCLUIDA'
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+    -- Prioridade
+    BEGIN
+        ALTER TABLE demands ADD COLUMN priority TEXT DEFAULT 'MEDIA';
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
 
--- Instrução: Execute este script no SQL Editor do seu projeto Supabase.
--- As tabelas são criadas apenas se não existirem (IF NOT EXISTS), 
--- preservando dados se executado repetidamente.
+    -- Status
+    BEGIN
+        ALTER TABLE demands ADD COLUMN status TEXT DEFAULT 'A FAZER';
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+
+    -- Prazo
+    BEGIN
+        ALTER TABLE demands ADD COLUMN due_date DATE;
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+
+    -- Display ID (Numeração amigável)
+    BEGIN
+        ALTER TABLE demands ADD COLUMN display_id SERIAL;
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+END $$;
+
+-- 3. FORÇAR REFRESH DO CACHE (Técnica de Renomeação)
+-- Isso mata o erro PGRST204 e 23502 de cache fantasma
+ALTER TABLE demands RENAME TO demands_fix_tmp;
+ALTER TABLE demands_fix_tmp RENAME TO demands;
+
+-- 4. Notificar o PostgREST para recarregar
+NOTIFY pgrst, 'reload schema';

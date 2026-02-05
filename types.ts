@@ -42,6 +42,9 @@ export interface Task {
 }
 
 // Novas interfaces para Demandas
+export type DemandPriority = 'ALTA' | 'MEDIA' | 'BAIXA';
+export type DemandStatus = 'A FAZER' | 'EM APROVACAO' | 'EM EXECUCAO' | 'CONCLUIDO';
+
 export interface Area {
   id: string;
   name: string;
@@ -51,10 +54,14 @@ export interface Area {
 
 export interface Demand {
   id: string;
+  display_id: number;
   area_id: string;
-  description: string;
-  status: 'PENDENTE' | 'CONCLUIDA';
+  title: string;
+  priority: DemandPriority;
+  status: DemandStatus;
   created_at: string;
+  due_date: string | null;
+  completed_at: string | null;
 }
 
 export interface Routine {
