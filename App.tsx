@@ -205,6 +205,11 @@ const App: React.FC = () => {
     });
   }, [tasks, subTab, viewDateStr, viewDayName]);
 
+  // Itens para a guia CADASTRO: Apenas Hábito e Cotidiano
+  const registryTasks = useMemo(() => {
+    return tasks.filter(t => t.type !== TaskType.TASK);
+  }, [tasks]);
+
   const isFormValid = useMemo(() => {
     return title.trim() !== '';
   }, [title]);
@@ -619,13 +624,13 @@ const App: React.FC = () => {
             ) : (
               <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 flex-1 shadow-sm flex flex-col overflow-hidden animate-fade-in">
                 <div className="p-3 md:p-6 border-b border-slate-300 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 gap-3">
-                  <div className="flex flex-col"><h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">Histórico Completo</h3><span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{tasks.length} Protocolos</span></div>
+                  <div className="flex flex-col"><h3 className="text-[9px] md:text-[10px] font-bold text-slate-950 dark:text-slate-100 tracking-[0.3em] uppercase">Histórico Completo</h3><span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{registryTasks.length} Protocolos</span></div>
                   <button onClick={handleOpenNewTask} className="flex items-center justify-center gap-2 bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-4 py-2.5 md:px-6 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-sm"><Icons.Plus /> Novo Registro</button>
                 </div>
                 <div className="flex-1 overflow-y-auto divide-y divide-slate-300 dark:divide-slate-800">
-                  {tasks.length === 0 ? (
+                  {registryTasks.length === 0 ? (
                     <div className="p-12 md:p-24 text-center flex flex-col items-center justify-center opacity-40"><div className="w-10 h-10 md:w-16 md:h-16 border-2 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 mb-4"><Icons.List /></div><p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-500">Nenhum registro localizado.</p></div>
-                  ) : (tasks.map(task => <TaskCard key={task.id} task={task} />))}
+                  ) : (registryTasks.map(task => <TaskCard key={task.id} task={task} />))}
                 </div>
               </div>
             )}
